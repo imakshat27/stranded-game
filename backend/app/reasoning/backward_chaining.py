@@ -131,12 +131,18 @@ class BackwardChainingEngine:
 
         count_goals(root)
 
+        completion_pct = (
+            round((satisfied_subgoals / total_subgoals) * 100.0, 1)
+            if total_subgoals > 0
+            else 0.0
+        )
+
         return {
             "root_goal": "escape",
             "goal_tree": root.to_dict(),
             "total_subgoals": total_subgoals,
             "satisfied_subgoals": satisfied_subgoals,
-            "completion_percentage": round((satisfied_subgoals / total_subgoals) * 100.0, 1),
+            "completion_percentage": completion_pct,
             "next_logical_action": cls.find_first_unfulfilled_action(root)
         }
 
