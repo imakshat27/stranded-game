@@ -4,7 +4,7 @@ Reasons backwards from the ultimate objective (escape) through required sub-goal
 identifying currently satisfied prerequisites and unfulfilled dependencies grounded in state facts.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from app.game.state import GameState
 from app.reasoning.facts import extract_facts
 
@@ -118,18 +118,16 @@ class BackwardChainingEngine:
         root.subgoals.append(launch_node)
 
         # Compute summary
-        total_subgoals = 0
-        satisfied_subgoals = 0
-
-        def count_goals(node: GoalNode):
-            nonlocal total_subgoals, satisfied_subgoals
-            total_subgoals += 1
-            if node.satisfied:
-                satisfied_subgoals += 1
+        def count_goals(node: GoalNode) -> Tuple[int, int]:
+            tot = 1
+            sat = 1 if node.satisfied else 0
             for child in node.subgoals:
-                count_goals(child)
+                c_tot, c_sat = count_goals(child)
+                tot += c_tot
+                sat += c_sat
+            return tot, sat
 
-        count_goals(root)
+        total_subgoals, satisfied_subgoals = count_goals(root)
 
         completion_pct = (
             round((satisfied_subgoals / total_subgoals) * 100.0, 1)
