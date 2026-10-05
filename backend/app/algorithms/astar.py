@@ -45,15 +45,7 @@ def astar_search(problem: SearchProblem, max_nodes: int = 2000) -> SearchResult:
     max_frontier = 1
     node_counter = 0
 
-    tree_nodes: List[Dict] = [{
-        "id": root.node_id,
-        "label": f"Root (f={round(root.f_cost, 1)})",
-        "depth": 0,
-        "g_cost": 0.0,
-        "h_cost": round(h_root, 1),
-        "f_cost": round(root.f_cost, 1),
-        "is_goal": False
-    }]
+    tree_nodes: List[Dict] = [root.to_tree_node_dict(is_goal=problem.is_goal(root.state))]
     tree_edges: List[Dict] = []
     vis_steps: List[Dict] = []
 
@@ -67,7 +59,8 @@ def astar_search(problem: SearchProblem, max_nodes: int = 2000) -> SearchResult:
         closed_set.add(sig)
         explored_count += 1
 
-        if len(vis_steps) < 40 or explored_count % 10 == 0:
+        if len(vis_steps) < 45 or explored_count % 10 == 0:
+            act_label = current.action.name if current.action else "Base Camp (Start)"
             vis_steps.append({
                 "step": explored_count,
                 "current_node": current.node_id,
@@ -77,7 +70,8 @@ def astar_search(problem: SearchProblem, max_nodes: int = 2000) -> SearchResult:
                 "depth": current.depth,
                 "frontier": [item[2].node_id for item in pq[:8]],
                 "explored_count": explored_count,
-                "action": current.action.name if current.action else "Root"
+                "action": act_label,
+                "step_narrative": f"Exploring '{act_label}' (Node {current.node_id}, Priority f={round(current.f_cost, 1)}). Path cost so far is {round(current.g_cost, 1)}, remaining estimated distance to escape is {round(current.h_cost, 1)}."
             })
 
         if problem.is_goal(current.state):
@@ -131,21 +125,13 @@ def astar_search(problem: SearchProblem, max_nodes: int = 2000) -> SearchResult:
                 counter += 1
                 heapq.heappush(pq, (child.f_cost, counter, child))
 
-                if len(tree_nodes) < 60:
-                    tree_nodes.append({
-                        "id": child_id,
-                        "label": f"{action.name} (f={round(child.f_cost, 1)})",
-                        "depth": child.depth,
-                        "g_cost": round(child.g_cost, 1),
-                        "h_cost": round(child.h_cost, 1),
-                        "f_cost": round(child.f_cost, 1),
-                        "is_goal": problem.is_goal(next_state)
-                    })
+                if len(tree_nodes) < 70:
+                    tree_nodes.append(child.to_tree_node_dict(is_goal=problem.is_goal(next_state), step_cost=step_c))
                     tree_edges.append({
                         "id": f"e-{current.node_id}-{child_id}",
                         "source": current.node_id,
                         "target": child_id,
-                        "label": f"{action.id} (+{round(step_c, 1)})"
+                        "label": f"{action.name} (+{round(step_c, 1)})"
                     })
 
     exec_time = (time.time() - start_time) * 1000.0

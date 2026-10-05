@@ -35,13 +35,7 @@ def hill_climbing_search(problem: SearchProblem, max_steps: int = 30) -> SearchR
 
     path_actions = []
     vis_steps: List[Dict] = []
-    tree_nodes: List[Dict] = [{
-        "id": current.node_id,
-        "label": f"Root (U={round(evaluate_state_utility(current.state), 1)})",
-        "depth": 0,
-        "g_cost": 0.0,
-        "is_goal": False
-    }]
+    tree_nodes: List[Dict] = [current.to_tree_node_dict(is_goal=problem.is_goal(current.state))]
     tree_edges: List[Dict] = []
     step_count = 0
     total_explored = 1
@@ -107,18 +101,12 @@ def hill_climbing_search(problem: SearchProblem, max_steps: int = 30) -> SearchR
             depth=current.depth + 1
         )
 
-        tree_nodes.append({
-            "id": child_id,
-            "label": f"{best_action.name} (U={round(best_util, 1)})",
-            "depth": child.depth,
-            "g_cost": round(child.g_cost, 1),
-            "is_goal": problem.is_goal(best_next_state)
-        })
+        tree_nodes.append(child.to_tree_node_dict(is_goal=problem.is_goal(best_next_state), step_cost=step_cost))
         tree_edges.append({
             "id": f"e-{current.node_id}-{child_id}",
             "source": current.node_id,
             "target": child_id,
-            "label": best_action.id
+            "label": f"{best_action.name} (+{round(step_cost, 1)})"
         })
 
         path_actions.append(best_action.id)

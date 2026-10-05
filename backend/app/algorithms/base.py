@@ -53,6 +53,69 @@ class SearchNode:
         nodes.reverse()
         return nodes
 
+    def to_tree_node_dict(self, is_goal: bool = False, step_cost: float = 0.0) -> Dict[str, Any]:
+        """Convert search node to a rich visual dictionary for AI Lab rendering."""
+        vital_deltas = {}
+        if self.parent:
+            vital_deltas = {
+                "health": round(self.state.health - self.parent.state.health, 1),
+                "water": round(self.state.water - self.parent.state.water, 1),
+                "food": round(self.state.food - self.parent.state.food, 1),
+                "energy": round(self.state.energy - self.parent.state.energy, 1),
+                "wood": self.state.wood - self.parent.state.wood,
+                "rope": self.state.rope - self.parent.state.rope,
+                "metal": self.state.metal - self.parent.state.metal,
+            }
+
+        act_name = self.action.name if self.action else "Initial Camp"
+        if not self.parent:
+            commentary = "Starting state at Base Camp. AI is evaluating immediate resource gathering and survival priorities."
+        elif is_goal:
+            commentary = f"Goal state achieved via '{act_name}'! Catamaran components assembled and escape launched."
+        elif self.action and (self.action.id.startswith("build_") or self.action.id.startswith("rig_") or self.action.id.startswith("craft_")):
+            commentary = f"Crucial milestone: Executed '{act_name}'. Completed vital escape vessel component."
+        elif self.action and "wood" in self.action.id:
+            commentary = f"Simulated '{act_name}'. Stockpiled {self.state.wood}/6 wood needed for hull construction."
+        elif self.action and "water" in self.action.id:
+            commentary = f"Simulated '{act_name}'. Refreshed hydration reserves to {round(self.state.water, 0)}%."
+        elif self.action and "food" in self.action.id:
+            commentary = f"Simulated '{act_name}'. Secured caloric provisions to maintain health resilience."
+        else:
+            commentary = f"Simulated '{act_name}'. Evaluated with path cost g={round(self.g_cost, 1)} and remaining heuristic h={round(self.h_cost, 1)}."
+
+        return {
+            "id": self.node_id,
+            "label": f"{act_name} (f={round(self.f_cost, 1)})",
+            "action_id": self.action.id if self.action else "start",
+            "action_name": act_name,
+            "action_category": self.action.category if self.action else "SURVIVAL",
+            "depth": self.depth,
+            "parent_id": self.parent.node_id if self.parent else None,
+            "step_cost": round(step_cost, 1),
+            "g_cost": round(self.g_cost, 1),
+            "h_cost": round(self.h_cost, 1),
+            "f_cost": round(self.f_cost, 1),
+            "is_goal": is_goal,
+            "vitals": {
+                "health": round(self.state.health, 1),
+                "water": round(self.state.water, 1),
+                "food": round(self.state.food, 1),
+                "energy": round(self.state.energy, 1),
+            },
+            "inventory": {
+                "wood": self.state.wood,
+                "rope": self.state.rope,
+                "metal": self.state.metal,
+                "tools": self.state.tools,
+                "shelter_level": self.state.shelter_level
+            },
+            "boat_parts": dict(self.state.boat_parts),
+            "escape_progress": round(self.state.escape_progress, 1),
+            "vital_deltas": vital_deltas,
+            "ai_commentary": commentary,
+            "path": self.path()
+        }
+
     def state_signature(self) -> str:
         """Produce a hashable discrete signature for graph cycle/visited detection."""
         parts_tuple = tuple(sorted((k, v) for k, v in self.state.boat_parts.items()))

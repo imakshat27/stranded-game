@@ -18,19 +18,23 @@ def depth_limited_search(
     explored_tracker: List[int],
     max_nodes: int,
     vis_steps: List[Dict],
-    iteration_label: str
+    iteration_label: str,
+    tree_nodes: Optional[List[Dict]] = None,
+    tree_edges: Optional[List[Dict]] = None
 ) -> Tuple[Optional[SearchNode], bool]:
     """Recursive Depth-Limited Search helper. Returns (goal_node, cutoff_occurred)."""
     explored_tracker[0] += 1
 
-    if len(vis_steps) < 40 and explored_tracker[0] % 4 == 0:
+    if len(vis_steps) < 45 and explored_tracker[0] % 3 == 0:
+        act_label = node.action.name if node.action else "Base Camp (Start)"
         vis_steps.append({
             "step": explored_tracker[0],
             "iteration": iteration_label,
             "current_node": node.node_id,
             "depth": node.depth,
             "limit": limit,
-            "action": node.action.name if node.action else "Root"
+            "action": act_label,
+            "step_narrative": f"IDS iteration ({iteration_label}): evaluating '{act_label}' at Depth {node.depth}/{limit}."
         })
 
     if problem.is_goal(node.state):
@@ -45,19 +49,32 @@ def depth_limited_search(
     cutoff = False
     for action in problem.get_actions(node.state):
         next_state = problem.transition(node.state, action)
+        step_c = problem.step_cost(node.state, action)
         child = SearchNode(
             node_id=f"{node.node_id}-{action.id[:3]}",
             state=next_state,
             parent=node,
             action=action,
-            g_cost=node.g_cost + problem.step_cost(node.state, action),
+            g_cost=node.g_cost + step_c,
             depth=node.depth + 1
         )
+
+        if tree_nodes is not None and len(tree_nodes) < 70 and not any(tn["id"] == child.node_id for tn in tree_nodes):
+            tree_nodes.append(child.to_tree_node_dict(is_goal=problem.is_goal(next_state), step_cost=step_c))
+            if tree_edges is not None:
+                tree_edges.append({
+                    "id": f"e-{node.node_id}-{child.node_id}",
+                    "source": node.node_id,
+                    "target": child.node_id,
+                    "label": f"{action.name} (+{round(step_c, 1)})"
+                })
+
         sig = child.state_signature()
         if sig not in visited:
             visited.add(sig)
             result, child_cutoff = depth_limited_search(
-                problem, child, limit, visited, explored_tracker, max_nodes, vis_steps, iteration_label
+                problem, child, limit, visited, explored_tracker, max_nodes, vis_steps, iteration_label,
+                tree_nodes, tree_edges
             )
             visited.remove(sig)
             if result is not None:
@@ -95,12 +112,16 @@ def iterative_deepening_search(problem: SearchProblem, max_depth: int = 15, max_
             depth=0
         )
 
+    tree_nodes: List[Dict] = [root.to_tree_node_dict(is_goal=problem.is_goal(root.state))]
+    tree_edges: List[Dict] = []
+
     for depth_limit in range(1, max_depth + 1):
         visited: Set[str] = {root.state_signature()}
         iteration_label = f"Depth Limit {depth_limit}"
 
         goal_node, cutoff = depth_limited_search(
-            problem, root, depth_limit, visited, total_explored, max_nodes, vis_steps, iteration_label
+            problem, root, depth_limit, visited, total_explored, max_nodes, vis_steps, iteration_label,
+            tree_nodes, tree_edges
         )
 
         if goal_node:
@@ -118,6 +139,8 @@ def iterative_deepening_search(problem: SearchProblem, max_depth: int = 15, max_
                 max_frontier_size=depth_limit + 1,
                 execution_time_ms=round(exec_time, 2),
                 depth=goal_node.depth,
+                tree_nodes=tree_nodes[:70],
+                tree_edges=tree_edges[:70],
                 visualization_steps=vis_steps
             )
 
@@ -135,5 +158,7 @@ def iterative_deepening_search(problem: SearchProblem, max_depth: int = 15, max_
         max_frontier_size=max_depth,
         execution_time_ms=round(exec_time, 2),
         depth=0,
+        tree_nodes=tree_nodes[:70],
+        tree_edges=tree_edges[:70],
         visualization_steps=vis_steps
     )
