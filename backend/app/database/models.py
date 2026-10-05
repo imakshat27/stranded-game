@@ -4,7 +4,7 @@ Stores game sessions, state snapshots, actions, events, player behavioral profil
 and AI algorithm benchmark metrics.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from typing import Any, Dict, Optional
 from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey
@@ -12,12 +12,16 @@ from sqlalchemy.orm import relationship
 from app.database.session import Base
 
 
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
 class Game(Base):
     __tablename__ = "games"
 
     id = Column(String(36), primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     status = Column(String(32), default="ACTIVE", index=True)  # ACTIVE, WON, LOST, ABANDONED
     current_day = Column(Integer, default=1)
     current_state_json = Column(Text, nullable=False)
@@ -38,7 +42,7 @@ class GameStateRecord(Base):
     game_id = Column(String(36), ForeignKey("games.id", ondelete="CASCADE"), index=True, nullable=False)
     day = Column(Integer, nullable=False)
     state_json = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     game = relationship("Game", back_populates="states")
 
@@ -53,7 +57,7 @@ class ActionHistoryRecord(Base):
     action_details_json = Column(Text, nullable=True)
     state_before_json = Column(Text, nullable=True)
     state_after_json = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     game = relationship("Game", back_populates="action_history")
 
@@ -68,7 +72,7 @@ class EventHistoryRecord(Base):
     event_name = Column(String(128), nullable=False)
     category = Column(String(64), nullable=False)
     outcome_json = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     game = relationship("Game", back_populates="event_history")
 
@@ -83,7 +87,7 @@ class PlayerProfileRecord(Base):
     profile_type = Column(String(32), default="Balanced")
     actions_taken = Column(Integer, default=0)
     profile_data_json = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     game = relationship("Game", back_populates="profile")
 
@@ -99,6 +103,6 @@ class AlgorithmRunRecord(Base):
     execution_time_ms = Column(Float, nullable=False)
     depth = Column(Integer, nullable=True)
     result = Column(String(32), nullable=False)  # SUCCESS, FAILURE, LIMIT_REACHED
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     game = relationship("Game", back_populates="algorithm_runs")
