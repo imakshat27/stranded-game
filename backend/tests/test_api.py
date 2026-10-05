@@ -108,10 +108,18 @@ def test_ai_probability_and_rival_api():
     assert prob_res.status_code == 200
     assert "final_posterior" in prob_res.json()["data"]
 
-    # Rival survivor mode
+    # Rival survivor mode (without and with player action)
     rival_res = client.post("/api/ai/rival", json={"algorithm": "alpha_beta", "depth": 2})
     assert rival_res.status_code == 200
     assert rival_res.json()["data"]["best_action"] is not None
+
+    rival_action_res = client.post("/api/ai/rival", json={
+        "algorithm": "minimax",
+        "depth": 2,
+        "player_action": "claim_spring"
+    })
+    assert rival_action_res.status_code == 200
+    assert rival_action_res.json()["data"]["best_action"] is not None
 
 
 def test_analytics_and_knowledge_api():

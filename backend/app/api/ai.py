@@ -14,7 +14,7 @@ from app.algorithms.ucs import uniform_cost_search
 from app.algorithms.best_first import best_first_search
 from app.algorithms.astar import astar_search
 from app.algorithms.hill_climbing import hill_climbing_search
-from app.algorithms.minimax import run_minimax, RivalState
+from app.algorithms.minimax import run_minimax, RivalState, apply_rival_action
 from app.algorithms.alpha_beta import run_alpha_beta
 from app.planning.planner import StrategicPlanner, StrategicPlan
 from app.planning.replanner import Replanner
