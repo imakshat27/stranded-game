@@ -2,7 +2,6 @@
   "name": "stranded-game",
   "compatibility_date": "2026-02-01",
   "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS"
+    "directory": "./dist"
   }
 }
