@@ -51,7 +51,7 @@ def hill_climbing_search(problem: SearchProblem, max_steps: int = 30) -> SearchR
         current_utility = evaluate_state_utility(current.state)
 
         if problem.is_goal(current.state):
-            act_names = [ActionManager.get_action(a).name for a in path_actions if ActionManager.get_action(a)]
+            act_names = [act.name for a in path_actions if (act := ActionManager.get_action(a))]
             exec_time = (time.time() - start_time) * 1000.0
             return SearchResult(
                 algorithm="Hill Climbing",
@@ -125,7 +125,7 @@ def hill_climbing_search(problem: SearchProblem, max_steps: int = 30) -> SearchR
         current = child
 
     exec_time = (time.time() - start_time) * 1000.0
-    act_names = [ActionManager.get_action(a).name for a in path_actions if ActionManager.get_action(a)]
+    act_names = [act.name for a in path_actions if (act := ActionManager.get_action(a))]
     return SearchResult(
         algorithm="Hill Climbing",
         success=problem.is_goal(current.state),

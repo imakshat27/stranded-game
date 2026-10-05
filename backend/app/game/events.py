@@ -52,7 +52,7 @@ class EventManager:
         return True
 
     @classmethod
-    def compute_event_weight(cls, state: GameState, event: Dict[str, Any], rng: Optional[random.Random] = None) -> float:
+    def compute_event_weight(cls, state: GameState, event: Dict[str, Any], rng: Optional[Any] = None) -> float:
         """Calculate weighted probability using difficulty, profile, and shelter modifiers."""
         weight = float(event.get("base_probability", 0.1))
 
@@ -93,7 +93,7 @@ class EventManager:
         state: GameState,
         action_risk: float = 0.0,
         deterministic: bool = False,
-        rng: Optional[random.Random] = None
+        rng: Optional[Any] = None
     ) -> Optional[Dict[str, Any]]:
         """Select an event if eligible based on action risk and environment."""
         if deterministic:

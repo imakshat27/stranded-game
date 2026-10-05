@@ -65,7 +65,7 @@ def depth_first_search(problem: SearchProblem, max_depth: int = 15, max_nodes: i
 
         if problem.is_goal(current.state):
             path_actions = current.path()
-            act_names = [ActionManager.get_action(a).name for a in path_actions if ActionManager.get_action(a)]
+            act_names = [act.name for a in path_actions if (act := ActionManager.get_action(a))]
             exec_time = (time.time() - start_time) * 1000.0
             return SearchResult(
                 algorithm="DFS",

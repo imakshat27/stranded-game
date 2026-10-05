@@ -33,7 +33,7 @@ def test_action_validation():
     assert hull_act is not None
     is_valid, reason = ActionManager.is_action_valid(state, hull_act)
     assert is_valid is False
-    assert "wood" in reason.lower()
+    assert reason is not None and "wood" in reason.lower()
 
 
 def test_action_execution_and_day_advance():

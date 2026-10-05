@@ -13,7 +13,7 @@ from app.game.actions import Action, ActionManager
 from app.game.events import EventManager
 
 
-def advance_day(state: GameState, rng: Optional[random.Random] = None) -> list[str]:
+def advance_day(state: GameState, rng: Optional[Any] = None) -> list[str]:
     """Advance the game clock by 1 full day and apply overnight survival degradation."""
     _rng = rng or random
     res_cfg = ConfigLoader.get_resources()
@@ -142,7 +142,7 @@ def apply_action(
     state: GameState,
     action: Action,
     deterministic: bool = False,
-    rng: Optional[random.Random] = None
+    rng: Optional[Any] = None
 ) -> StateTransition:
     """The authoritative game state transition function.
 
