@@ -1,0 +1,39 @@
+{
+  "target": "ocean_crossing_vessel",
+  "name": "Seaworthy Outrigger Catamaran",
+  "description": "A dual-hulled ocean catamaran equipped with lateen sail rigging, stabilized keel rudder, and sealed provisions.",
+  "components": {
+    "hull": {
+      "name": "Reinforced Keel & Hull",
+      "description": "Waterproofed cedar timber lashed with natural pitch.",
+      "required_wood": 6,
+      "required_tools": 0,
+      "progress_value": 25.0
+    },
+    "rigging": {
+      "name": "Canvas Sail & Rigging",
+      "description": "Marine-grade cordage and woven canvas for open-ocean steering.",
+      "required_rope": 4,
+      "progress_value": 25.0
+    },
+    "rudder": {
+      "name": "Stabilizer Keel & Rudder",
+      "description": "Hardened hardwood and metal-reinforced steering assembly.",
+      "required_wood": 3,
+      "required_metal": 2,
+      "progress_value": 25.0
+    },
+    "provisions": {
+      "name": "Sealed Survival Provisions",
+      "description": "Water casks and salted/dried rations for 10 days at sea.",
+      "required_water": 25.0,
+      "required_food": 25.0,
+      "progress_value": 25.0
+    }
+  },
+  "win_condition": {
+    "all_components_required": true,
+    "final_action": "launch_escape",
+    "min_health_to_launch": 20.0
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "baseline": {
+    "resource_scarcity": 0.5,
+    "environmental_risk": 0.4,
+    "exploration_risk": 0.45,
+    "escape_complexity": 0.5
+  },
+  "min_bounds": {
+    "resource_scarcity": 0.15,
+    "environmental_risk": 0.15,
+    "exploration_risk": 0.2,
+    "escape_complexity": 0.3
+  },
+  "max_bounds": {
+    "resource_scarcity": 0.95,
+    "environmental_risk": 0.9,
+    "exploration_risk": 0.95,
+    "escape_complexity": 0.85
+  },
+  "adaptation_rate": 0.05,
+  "weights": {
+    "health_critical_threshold": 30.0,
+    "resource_surplus_threshold": 75.0,
+    "high_risk_threshold": 0.65
+  }
+}

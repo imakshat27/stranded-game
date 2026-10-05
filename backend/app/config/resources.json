@@ -1,0 +1,36 @@
+{
+  "initial": {
+    "health": 100.0,
+    "water": 80.0,
+    "food": 75.0,
+    "energy": 90.0,
+    "shelter_level": 0,
+    "wood": 2,
+    "rope": 0,
+    "metal": 0,
+    "tools": 0,
+    "escape_progress": 0.0,
+    "actions_per_day": 2,
+    "max_shelter_level": 4,
+    "max_health": 100.0,
+    "max_water": 100.0,
+    "max_food": 100.0,
+    "max_energy": 100.0
+  },
+  "decay": {
+    "water_daily": 16.0,
+    "food_daily": 14.0,
+    "energy_night_rest": 30.0,
+    "energy_night_shelter_bonus_per_level": 8.0
+  },
+  "penalties": {
+    "dehydration_health_damage": 18.0,
+    "starvation_health_damage": 14.0,
+    "exposure_health_damage_bad_weather": 15.0,
+    "exhaustion_energy_threshold": 15.0
+  },
+  "shelter": {
+    "storm_damage_reduction_per_level": 0.22,
+    "max_damage_reduction": 0.88
+  }
+}
