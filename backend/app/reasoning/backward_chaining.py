@@ -1,7 +1,7 @@
 """Backward Chaining goal decomposition engine for STRANDED.
 
 Reasons backwards from the ultimate objective (escape) through required sub-goals,
-identifying currently satisfied prerequisites and unfulfilled dependencies.
+identifying currently satisfied prerequisites and unfulfilled dependencies grounded in state facts.
 """
 
 from typing import Any, Dict, List, Optional
@@ -36,64 +36,72 @@ class BackwardChainingEngine:
         facts = extract_facts(state)
 
         # Root Goal: Escape
-        root = GoalNode("Escape Island", "Safely depart the island aboard a seaworthy catamaran.", state.game_status == "WON")
+        root = GoalNode(
+            "Escape Island",
+            "Safely depart the island aboard a seaworthy catamaran.",
+            state.game_status == "WON"
+        )
 
         # Subgoal 1: Vessel Complete
-        vessel_node = GoalNode("Catamaran Construction", "All critical vessel components assembled.", state.escape_ready())
+        vessel_node = GoalNode(
+            "Catamaran Construction",
+            "All critical vessel components assembled.",
+            "escape_ready" in facts
+        )
 
         # Hull Subgoal
-        hull_satisfied = state.boat_parts.get("hull", False)
+        hull_satisfied = "hull_built" in facts
         hull_node = GoalNode("Construct Boat Hull", "Solid wooden keel and ribs assembled.", hull_satisfied)
         hull_wood_req = GoalNode(
             "Acquire 6 Timber",
             f"Wood inventory: {state.wood}/6",
-            state.wood >= 6 or hull_satisfied
+            "wood_sufficient_for_hull" in facts or hull_satisfied
         )
         hull_wood_req.action_hint = "collect_wood"
         hull_node.subgoals.append(hull_wood_req)
-        if not hull_satisfied and state.wood >= 6:
+        if not hull_satisfied and "wood_sufficient_for_hull" in facts:
             hull_node.action_hint = "build_boat_hull"
         vessel_node.subgoals.append(hull_node)
 
         # Rigging Subgoal
-        rigging_satisfied = state.boat_parts.get("rigging", False)
+        rigging_satisfied = "rigging_built" in facts
         rig_node = GoalNode("Rig Sails & Cordage", "Canvas and marine-grade rope rigged to mast.", rigging_satisfied)
         rig_rope_req = GoalNode(
             "Acquire 4 Marine Rope",
             f"Rope inventory: {state.rope}/4",
-            state.rope >= 4 or rigging_satisfied
+            "rope_sufficient_for_rigging" in facts or rigging_satisfied
         )
         rig_rope_req.action_hint = "search_wreckage"
         rig_node.subgoals.append(rig_rope_req)
-        if not rigging_satisfied and state.rope >= 4:
+        if not rigging_satisfied and "rope_sufficient_for_rigging" in facts:
             rig_node.action_hint = "rig_boat_sails"
         vessel_node.subgoals.append(rig_node)
 
         # Rudder Subgoal
-        rudder_satisfied = state.boat_parts.get("rudder", False)
+        rudder_satisfied = "rudder_built" in facts
         rudder_node = GoalNode("Fashion Rudder & Keel", "Steering gear and metal stabilizers mounted.", rudder_satisfied)
         rudder_mat_req = GoalNode(
             "Acquire 3 Wood & 2 Metal",
             f"Materials: Wood {state.wood}/3, Metal {state.metal}/2",
-            (state.wood >= 3 and state.metal >= 2) or rudder_satisfied
+            "materials_sufficient_for_rudder" in facts or rudder_satisfied
         )
         rudder_mat_req.action_hint = "search_wreckage"
         rudder_node.subgoals.append(rudder_mat_req)
-        if not rudder_satisfied and state.wood >= 3 and state.metal >= 2:
+        if not rudder_satisfied and "materials_sufficient_for_rudder" in facts:
             rudder_node.action_hint = "craft_rudder_keel"
         vessel_node.subgoals.append(rudder_node)
 
         # Provisions Subgoal
-        prov_satisfied = state.boat_parts.get("provisions", False)
+        prov_satisfied = "provisions_secured" in facts
         prov_node = GoalNode("Stockpile Sea Provisions", "Casks filled with 25 water and 25 rations.", prov_satisfied)
         prov_res_req = GoalNode(
             "Stockpile 35 Water & 35 Food",
             f"Vitals: Water {state.water:.0f}/35, Food {state.food:.0f}/35",
-            (state.water >= 35.0 and state.food >= 35.0) or prov_satisfied
+            "provisions_sufficient" in facts or prov_satisfied
         )
         prov_res_req.action_hint = "gather_water" if state.water < 35.0 else "gather_food"
         prov_node.subgoals.append(prov_res_req)
-        if not prov_satisfied and state.water >= 35.0 and state.food >= 35.0:
+        if not prov_satisfied and "provisions_sufficient" in facts:
             prov_node.action_hint = "stockpile_provisions"
         vessel_node.subgoals.append(prov_node)
 
