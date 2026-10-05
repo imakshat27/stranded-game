@@ -29,10 +29,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration allowing production frontend on Vercel and local dev
+# CORS configuration allowing custom Cloudflare subdomains, Vercel, and local dev
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list + ["*"],
+    allow_origins=settings.cors_origin_list,
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
