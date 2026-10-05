@@ -81,6 +81,16 @@
 }
 
 .react-flow__edge-path {
-  stroke: #475569 !important;
-  stroke-width: 2 !important;
+  stroke: #475569;
+  stroke-width: 1.5;
+}
+
+.winning-edge .react-flow__edge-path {
+  stroke: #10b981 !important;
+  stroke-width: 3px !important;
+}
+
+.dimmed-edge .react-flow__edge-path {
+  stroke: #1e293b !important;
+  opacity: 0.2 !important;
 }

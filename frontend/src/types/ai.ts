@@ -1,13 +1,36 @@
 export interface TreeNodeData {
   id: string;
   label: string;
+  action_id?: string;
+  action_name?: string;
+  action_category?: string;
   depth?: number;
+  parent_id?: string | null;
+  step_cost?: number;
   g_cost?: number;
   h_cost?: number;
   f_cost?: number;
   value?: number;
   is_goal?: boolean;
   is_max?: boolean;
+  vitals?: {
+    health: number;
+    water: number;
+    food: number;
+    energy: number;
+  };
+  inventory?: {
+    wood: number;
+    rope: number;
+    metal: number;
+    tools: number;
+    shelter_level: number;
+  };
+  boat_parts?: Record<string, boolean>;
+  escape_progress?: number;
+  vital_deltas?: Record<string, number>;
+  ai_commentary?: string;
+  path?: string[];
 }
 
 export interface TreeEdgeData {
@@ -29,6 +52,7 @@ export interface VisStep {
   frontier?: string[];
   explored_count?: number;
   action?: string;
+  step_narrative?: string;
 }
 
 export interface SearchResult {
