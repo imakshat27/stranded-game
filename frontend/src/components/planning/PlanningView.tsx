@@ -1,205 +1,171 @@
-import React, { useState, useEffect } from 'react';
-import {
-  GitBranch,
-  CloudLightning,
-  RotateCcw,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowRight,
-  Shield,
-  Zap,
-  Droplets,
-  Utensils
-} from 'lucide-react';
-import { StrategicPlan, ReplanningResult } from '../../types/ai';
-import { GameState } from '../../types/game';
-import { api } from '../../services/api';
-
-interface PlanningViewProps {
+import { useEffect, useRef, useState } from "react";
+import type { StrategicPlan, ReplanningResult } from "../../types/ai";
+import type { GameState, ActionOption } from "../../types/game";
+import { api } from "../../services/api";
+export function PlanningView({
+  gameState,
+  actionOptions,
+  onSelectAction,
+  onNavigateToGame,
+}: {
   gameState: GameState | null;
-}
-
-export const PlanningView: React.FC<PlanningViewProps> = ({ gameState }) => {
-  const [currentPlan, setCurrentPlan] = useState<StrategicPlan | null>(null);
-  const [replanningData, setReplanningData] = useState<ReplanningResult | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [simulating, setSimulating] = useState<boolean>(false);
-
-  const fetchPlan = async () => {
+  actionOptions?: ActionOption[];
+  onSelectAction?: (id: string) => void;
+  onNavigateToGame?: () => void;
+}) {
+  const [plan, setPlan] = useState<StrategicPlan | null>(null);
+  const [preview, setPreview] = useState<ReplanningResult | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const sequence = useRef(0);
+  useEffect(() => {
+    const id = ++sequence.current;
     setLoading(true);
-    setReplanningData(null);
-    try {
-      const plan = await api.ai.plan(gameState?.game_id, gameState || undefined);
-      setCurrentPlan(plan);
-    } catch (err) {
-      console.error('Plan generation failed:', err);
-    } finally {
+    setError("");
+    setPlan(null);
+    setPreview(null);
+    if (!gameState) {
       setLoading(false);
+      return;
     }
-  };
-
-  const handleSimulateCrisisAndReplan = async () => {
-    setSimulating(true);
+    api.ai
+      .plan(undefined, gameState)
+      .then((p) => {
+        if (id === sequence.current) setPlan(p);
+      })
+      .catch((e) => {
+        if (id === sequence.current) setError(e.message);
+      })
+      .finally(() => {
+        if (id === sequence.current) setLoading(false);
+      });
+    return () => {
+      sequence.current++;
+    };
+  }, [gameState]);
+  const simulate = async () => {
+    if (!gameState || !plan || loading) return;
+    const id = ++sequence.current;
+    setLoading(true);
+    setError("");
     try {
       const result = await api.ai.replan({
-        gameId: gameState?.game_id,
-        state: gameState || undefined,
-        currentPlan: currentPlan || undefined,
-        simulateStormDamage: true
+        state: gameState,
+        currentPlan: plan,
+        simulateStormDamage: true,
       });
-      setReplanningData(result);
-      if (!result.is_plan_valid) {
-        setCurrentPlan(result.new_plan);
-      }
-    } catch (err) {
-      console.error('Replanning simulation failed:', err);
+      if (id === sequence.current) setPreview(result);
+    } catch (e) {
+      if (id === sequence.current)
+        setError(e instanceof Error ? e.message : "Simulation failed");
     } finally {
-      setSimulating(false);
+      if (id === sequence.current) setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchPlan();
-  }, []);
-
+  const first = plan?.steps[0];
+  const option = actionOptions?.find((o) => o.action.id === first?.action_id);
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="glass-panel rounded-2xl p-5">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800/80">
-          <div>
-            <div className="flex items-center gap-2">
-              <GitBranch className="w-5 h-5 text-emerald-400" />
-              <h2 className="text-lg font-bold text-white tracking-wide">
-                Strategic Escape Planner & Adaptive Replanner
-              </h2>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Generates goal-directed multi-step action trajectories and autonomously replans when environmental crises disrupt preconditions.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={fetchPlan}
-              disabled={loading || simulating}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-            >
-              <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
-              <span>{loading ? 'Planning...' : 'Regenerate Plan'}</span>
-            </button>
-
-            <button
-              onClick={handleSimulateCrisisAndReplan}
-              disabled={loading || simulating}
-              className="px-3.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900/80 border border-rose-500/40 text-rose-200 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
-            >
-              <CloudLightning className={`w-3.5 h-3.5 ${simulating ? 'animate-bounce text-rose-400' : 'text-rose-400'}`} aria-hidden="true" />
-              <span>{simulating ? 'Simulating...' : 'Simulate Crisis & Replan'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Plan Header Info */}
-        {currentPlan && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-            <div className="glass-card rounded-xl p-3">
-              <span className="text-slate-400 block text-[10px] uppercase">Strategic Objective</span>
-              <span className="text-emerald-400 font-bold mt-0.5 truncate block">{currentPlan.goal}</span>
-            </div>
-            <div className="glass-card rounded-xl p-3">
-              <span className="text-slate-400 block text-[10px] uppercase">Plan Sequence Length</span>
-              <span className="text-cyan-300 font-bold mt-0.5 block">{currentPlan.total_steps} sequential steps</span>
-            </div>
-            <div className="glass-card rounded-xl p-3">
-              <span className="text-slate-400 block text-[10px] uppercase">Est. Cumulative Cost</span>
-              <span className="text-amber-400 font-bold mt-0.5 block">{currentPlan.estimated_total_cost} Energy Units</span>
-            </div>
-            <div className="glass-card rounded-xl p-3">
-              <span className="text-slate-400 block text-[10px] uppercase">Plan Integrity Status</span>
-              <span className={`font-bold mt-0.5 block ${currentPlan.status === 'ACTIVE' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {currentPlan.status}
+    <section className="escape-plan">
+      <h2>Escape plan</h2>
+      <p>
+        Keep yourself alive while assembling all four boat parts. The next step
+        adapts to your current supplies.
+      </p>
+      {gameState && (
+        <div className="boat-checklist">
+          {Object.entries(gameState.boat_parts).map(([part, built]) => (
+            <div key={part} className={built ? "built" : ""}>
+              <span>
+                {built ? "✓" : "○"} {part}
               </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Dynamic Replanning Diagnosis Banner */}
-      {replanningData && !replanningData.is_plan_valid && (
-        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 animate-fade-in">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-sm font-bold text-rose-200">
-                CRISIS OCCURRED: Preconditions Invalidated by Tropical Storm
-              </h4>
-              <p className="text-xs text-rose-300/90 mt-1 leading-relaxed">
-                <strong>Failure Diagnosis:</strong> {replanningData.invalidation_reason}
-              </p>
-              <div className="flex items-center gap-2 mt-2 text-xs font-mono text-emerald-400">
-                <span>Autonomous Replanning Active:</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-                <span className="underline">Synthesized new recovery sequence below</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Plan Step Timeline Cards */}
-      <div className="glass-panel rounded-2xl p-5">
-        <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono mb-4 flex items-center justify-between">
-          <span>Sequential Action Blueprint</span>
-          <span className="text-xs text-slate-400 font-normal">Order of Execution</span>
-        </h3>
-
-        <div className="space-y-3">
-          {currentPlan?.steps.map((step) => (
-            <div
-              key={step.step_number}
-              className="glass-card rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-emerald-500/40 transition"
-            >
-              <div className="flex items-start gap-3.5">
-                <span className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                  {step.step_number}
-                </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-bold text-white">{step.action_name}</h4>
-                    <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono bg-slate-800 text-slate-300">
-                      {step.category}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">{step.reason}</p>
-                </div>
-              </div>
-
-              {/* Resource Cost Badges */}
-              <div className="flex items-center gap-3 font-mono text-xs text-slate-400 shrink-0 self-end md:self-center">
-                {step.expected_energy_cost > 0 && (
-                  <span className="flex items-center gap-1 text-yellow-400">
-                    <Zap className="w-3.5 h-3.5" />
-                    {step.expected_energy_cost}
-                  </span>
-                )}
-                {step.expected_water_cost > 0 && (
-                  <span className="flex items-center gap-1 text-cyan-400">
-                    <Droplets className="w-3.5 h-3.5" />
-                    {step.expected_water_cost}
-                  </span>
-                )}
-                {step.expected_food_cost > 0 && (
-                  <span className="flex items-center gap-1 text-amber-400">
-                    <Utensils className="w-3.5 h-3.5" />
-                    {step.expected_food_cost}
-                  </span>
-                )}
-              </div>
+              <small>{built ? "Ready" : "Still needed"}</small>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      )}
+      {loading && <p role="status">Preparing your route…</p>}
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+      {first && (
+        <div className="next-step">
+          <small>Next requirement</small>
+          <h3>{first.action_name}</h3>
+          <p>{first.reason}</p>
+          <p className="choice-cost">
+            Energy −{first.expected_energy_cost} · Water −
+            {first.expected_water_cost} · Food −{first.expected_food_cost}
+          </p>
+          {option && !option.available && <p>{option.unavailable_reason}</p>}
+          {onSelectAction && (
+            <button
+              className="primary-button"
+              disabled={
+                loading ||
+                !option?.available ||
+                gameState?.game_status !== "ACTIVE"
+              }
+              onClick={() => {
+                onSelectAction(first.action_id);
+                onNavigateToGame?.();
+              }}
+            >
+              Take this action · uses 1 turn
+            </button>
+          )}
+        </div>
+      )}
+      {plan && !first && (
+        <p>
+          {gameState?.game_status === "WON"
+            ? "You escaped the island."
+            : "Check your boat requirements and available actions."}
+        </p>
+      )}
+      {plan && (
+        <details>
+          <summary>Full route · {plan.steps.length} steps</summary>
+          <ol className="plan-list">
+            {plan.steps.map((step, i) => (
+              <li key={`${i}-${step.action_id}`}>
+                <strong>{step.action_name}</strong>
+                <p>{step.reason}</p>
+              </li>
+            ))}
+          </ol>
+          <p>
+            Future steps are estimates. Resources, weather, and events may
+            change the route.
+          </p>
+        </details>
+      )}
+      <details className="crisis-preview">
+        <summary>What if a storm interrupts the plan?</summary>
+        <p>
+          Hypothetical experiment: remove up to 4 wood, reduce health, and
+          simulate stormy weather. Your expedition remains unchanged.
+        </p>
+        <button disabled={loading || !plan} onClick={simulate}>
+          Preview storm recovery
+        </button>
+        {preview && (
+          <div>
+            <strong>Simulation only</strong>
+            <p>
+              {preview.invalidation_reason ||
+                "The next planned action remains possible in this scenario."}
+            </p>
+            <ol className="plan-list">
+              {preview.new_plan.steps.map((step, i) => (
+                <li key={i}>{step.action_name}</li>
+              ))}
+            </ol>
+            <p>Return to the live plan above to take an action.</p>
+          </div>
+        )}
+      </details>
+    </section>
   );
-};
+}

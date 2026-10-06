@@ -1,0 +1,95 @@
+import { Tent, Droplets, Trees, Ship, Compass, Mountain } from "lucide-react";
+
+export const hotspots = [
+  {
+    id: "camp",
+    label: "Base camp",
+    detail: "Rest, recover & reinforce",
+    icon: Tent,
+    x: 25,
+    y: 61,
+    actions: ["rest_and_recover", "improve_shelter", "craft_tools"],
+  },
+  {
+    id: "water",
+    label: "Freshwater stream",
+    detail: "Collect drinking water",
+    icon: Droplets,
+    x: 17,
+    y: 40,
+    actions: ["gather_water"],
+  },
+  {
+    id: "jungle",
+    label: "Jungle edge",
+    detail: "Forage & gather timber",
+    icon: Trees,
+    x: 39,
+    y: 35,
+    actions: ["gather_food", "collect_wood"],
+  },
+  {
+    id: "shore",
+    label: "Eastern shore",
+    detail: "Explore & salvage",
+    icon: Compass,
+    x: 77,
+    y: 39,
+    actions: ["explore_eastern_shore", "search_wreckage"],
+  },
+  {
+    id: "cave",
+    label: "Hidden cave",
+    detail: "Search the limestone caverns",
+    icon: Mountain,
+    x: 57,
+    y: 27,
+    actions: ["search_cave"],
+  },
+  {
+    id: "boat",
+    label: "Boat slipway",
+    detail: "Build your way home",
+    icon: Ship,
+    x: 67,
+    y: 67,
+    actions: [
+      "build_boat_hull",
+      "rig_boat_sails",
+      "craft_rudder_keel",
+      "stockpile_provisions",
+      "launch_escape",
+    ],
+  },
+] as const;
+
+export const locations = [
+  {
+    id: "base_camp",
+    label: "Shipwreck Cove",
+    x: 30,
+    y: 72,
+    description: "Your shelter and escape vessel construction site.",
+  },
+  {
+    id: "freshwater_stream",
+    label: "Freshwater stream",
+    x: 30,
+    y: 43,
+    description: "A reliable source of drinking water.",
+  },
+  {
+    id: "eastern_shore",
+    label: "Eastern shore",
+    x: 75,
+    y: 61,
+    description: "Scout the coast to unlock wreckage salvage.",
+  },
+  {
+    id: "hidden_cave",
+    label: "Hidden cave",
+    x: 58,
+    y: 29,
+    description: "Explore limestone caverns for metal and tools.",
+  },
+] as const;

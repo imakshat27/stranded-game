@@ -1,182 +1,183 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
   YAxis,
   Tooltip,
-  ResponsiveContainer,
   CartesianGrid,
-  Legend
-} from 'recharts';
-import { Activity, UserCheck, ShieldAlert, Sparkles, TrendingUp, Compass } from 'lucide-react';
-import { GameState } from '../../types/game';
-import { api } from '../../services/api';
-
-interface AnalyticsViewProps {
-  gameState: GameState | null;
-}
-
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ gameState }) => {
-  const [historyTimeline, setHistoryTimeline] = useState<any[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-
+  Legend,
+} from "recharts";
+import type { GameState } from "../../types/game";
+import type { JourneyData } from "../../types/graph";
+import { api } from "../../services/api";
+export function AnalyticsView({ gameState }: { gameState: GameState }) {
+  const [data, setData] = useState<JourneyData | null>(null);
+  const [error, setError] = useState("");
   useEffect(() => {
-    if (gameState?.game_id) {
-      setLoading(true);
-      Promise.all([
-        api.analytics.get(gameState.game_id),
-        api.analytics.getHistory(gameState.game_id)
-      ])
-        .then(([overview, history]) => {
-          setAnalyticsData(overview);
-          setHistoryTimeline(history.timeline || []);
-        })
-        .catch((err) => console.error('Failed to fetch analytics:', err))
-        .finally(() => setLoading(false));
-    }
-  }, [gameState?.game_id, gameState?.day]);
-
-  // Fallback demo point if fresh session
-  const timelineData = historyTimeline.length > 0 ? historyTimeline : [
-    { day: 1, health: 100, water: 80, food: 75, energy: 90, escape_progress: 0, environmental_risk: 0.4 }
-  ];
-
-  const profile = gameState?.player_profile || {
-    profile_type: 'Balanced',
-    exploration_score: 0.5,
-    risk_score: 0.3,
-    resource_score: 0.5,
-    total_actions: 0
-  };
-
+    let alive = true;
+    setError("");
+    setData(null);
+    api.game
+      .journey(gameState.game_id)
+      .then((d) => {
+        if (alive) setData(d);
+      })
+      .catch((e) => {
+        if (alive) setError(e.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [gameState]);
+  const timeline =
+    data?.nodes.map((n) => ({
+      turn: n.turn,
+      health: n.state.health,
+      water: n.state.water,
+      food: n.state.food,
+      energy: n.state.energy,
+    })) || [];
+  const weakest = Object.entries({
+    water: gameState.water,
+    food: gameState.food,
+    energy: gameState.energy,
+  }).sort((a, b) => a[1] - b[1])[0];
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="glass-panel rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Activity className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-lg font-bold text-white tracking-wide">
-            Telemetry, Profiling & Survival Analytics
-          </h2>
+    <section className="expedition-report">
+      <h2>Expedition report</h2>
+      <p>
+        Your actual choices and resource changes, ordered by turn. Simulated
+        searches are excluded.
+      </p>
+      <div className="report-summary">
+        <div>
+          <strong>{gameState.player_profile.total_actions}</strong>
+          <span>Choices made</span>
         </div>
-        <p className="text-xs text-slate-400">
-          Chronological resource timelines, real-time behavioral classifier, and adaptive difficulty vector trends.
+        <div>
+          <strong>
+            {Object.values(gameState.boat_parts).filter(Boolean).length}/4
+          </strong>
+          <span>Boat parts ready</span>
+        </div>
+        <div>
+          <strong>{gameState.discovered_locations.length}/4</strong>
+          <span>Locations known</span>
+        </div>
+      </div>
+      <div className="next-step">
+        <h3>
+          {gameState.game_status === "ACTIVE"
+            ? "Before your next move"
+            : "Expedition outcome"}
+        </h3>
+        <p>
+          {gameState.game_status === "ACTIVE"
+            ? weakest[1] < 25
+              ? `Your ${weakest[0]} is down to ${Math.round(weakest[1])}. Prioritize recovery before expensive work.`
+              : "Supplies are above the critical threshold. Check the next boat requirement while preserving enough for nightfall."
+            : gameState.status_reason || gameState.game_status}
         </p>
       </div>
-
-      {/* Behavioral Profile & Difficulty Vector Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Player Profile Classification */}
-        <div className="glass-panel rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
-            <div className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-emerald-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                Player Behavioral Classification
-              </h3>
-            </div>
-            <span className="px-3 py-1 rounded-full text-xs font-bold font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40">
-              {profile.profile_type}
-            </span>
-          </div>
-
-          <div className="space-y-3 font-mono text-xs">
-            <div>
-              <div className="flex justify-between text-slate-400 mb-1">
-                <span>Exploration Frequency:</span>
-                <span className="text-white font-bold">{Math.round((profile.exploration_score || 0) * 100)}%</span>
-              </div>
-              <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all"
-                  style={{ width: `${Math.round((profile.exploration_score || 0) * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-slate-400 mb-1">
-                <span>Risk Tolerance Rating:</span>
-                <span className="text-rose-400 font-bold">{Math.round((profile.risk_score || 0) * 100)}%</span>
-              </div>
-              <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-rose-500 h-full rounded-full transition-all"
-                  style={{ width: `${Math.round((profile.risk_score || 0) * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-slate-400 mb-1">
-                <span>Resource Preservation Efficiency:</span>
-                <span className="text-cyan-400 font-bold">{Math.round((profile.resource_score || 0.5) * 100)}%</span>
-              </div>
-              <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-cyan-500 h-full rounded-full transition-all"
-                  style={{ width: `${Math.round((profile.resource_score || 0.5) * 100)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Adaptive Difficulty Vector */}
-        <div className="glass-panel rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                Adaptive Difficulty Vector
-              </h3>
-            </div>
-            <span className="text-xs text-slate-400 font-mono">4-Vector Matrix</span>
-          </div>
-
-          <div className="space-y-3 font-mono text-xs">
-            {gameState?.difficulty_profile && Object.entries(gameState.difficulty_profile).map(([key, val]) => (
-              <div key={key}>
-                <div className="flex justify-between text-slate-400 mb-1 capitalize">
-                  <span>{key.replace('_', ' ')}:</span>
-                  <span className="text-amber-300 font-bold">{Math.round(val * 100)}%</span>
-                </div>
-                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-amber-600 to-rose-500 h-full rounded-full transition-all"
-                    style={{ width: `${Math.round(val * 100)}%` }}
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+      {!data && !error && <p role="status">Loading your record…</p>}
+      {data && (
+        <>
+          <h3>Condition over your journey</h3>
+          {timeline.length > 1 ? (
+            <div className="report-chart">
+              <ResponsiveContainer width="100%" height={270}>
+                <LineChart data={timeline}>
+                  <CartesianGrid stroke="#30474a" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="turn"
+                    label={{
+                      value: "Turn",
+                      position: "insideBottomRight",
+                      offset: -4,
+                    }}
+                    stroke="#a9bab5"
                   />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Vital Timelines Chart */}
-      <div className="glass-panel rounded-2xl p-5">
-        <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono mb-4 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-emerald-400" />
-          <span>Biological Vitals History Across Days</span>
-        </h3>
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="day" stroke="#94a3b8" label={{ value: 'Day', position: 'bottom', offset: 0, fill: '#94a3b8' }} />
-              <YAxis stroke="#94a3b8" domain={[0, 100]} />
-              <Tooltip contentStyle={{ background: '#0f172a', borderColor: '#334155', borderRadius: 8, fontSize: 12 }} />
-              <Legend verticalAlign="top" height={36} />
-              <Line type="monotone" dataKey="health" name="Health" stroke="#f43f5e" strokeWidth={2.5} dot={false} />
-              <Line type="monotone" dataKey="water" name="Water" stroke="#06b6d4" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="food" name="Food" stroke="#f59e0b" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="energy" name="Energy" stroke="#eab308" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
+                  <YAxis domain={[0, 100]} stroke="#a9bab5" />
+                  <Tooltip
+                    contentStyle={{
+                      background: "#193034",
+                      borderColor: "#48615e",
+                    }}
+                  />
+                  <Legend />
+                  {[
+                    ["health", "#e8a28e"],
+                    ["water", "#8ac6d0"],
+                    ["food", "#e5c58a"],
+                    ["energy", "#9dc5a1"],
+                  ].map(([key, color]) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stroke={color}
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p>Take your first action to begin the resource timeline.</p>
+          )}
+          {!!data.missing_snapshots && (
+            <p>Some older turns have no recorded snapshot.</p>
+          )}
+          <details>
+            <summary>Choice history · {data.current_turn} moves</summary>
+            <ol className="plan-list">
+              {data.nodes
+                .filter((n) => n.action_id)
+                .map((n) => (
+                  <li key={n.id}>
+                    <strong>{n.label}</strong>
+                    <p>
+                      Day {n.state.day} · Health {Math.round(n.state.health)} ·
+                      Water {Math.round(n.state.water)} · Food{" "}
+                      {Math.round(n.state.food)}
+                    </p>
+                  </li>
+                ))}
+            </ol>
+          </details>
+        </>
+      )}
+      <details>
+        <summary>Behavior & adaptive difficulty</summary>
+        <p>
+          These are model classifications, not a score or a judgment of your
+          play.
+        </p>
+        <p>Style: {gameState.player_profile.profile_type}</p>
+        <p>
+          Exploration:{" "}
+          {Math.round((gameState.player_profile.exploration_score ?? 0) * 100)}%
+          · Risk: {Math.round((gameState.player_profile.risk_score ?? 0) * 100)}
+          % · Resource management:{" "}
+          {Math.round((gameState.player_profile.resource_score ?? 0) * 100)}%
+        </p>
+        <p>
+          {Object.entries(gameState.difficulty_profile)
+            .map(
+              ([key, value]) =>
+                `${key.replaceAll("_", " ")}: ${Math.round(value * 100)}%`,
+            )
+            .join(" · ")}
+        </p>
+      </details>
+    </section>
   );
-};
+}

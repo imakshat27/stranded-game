@@ -1,177 +1,289 @@
-import React, { useState, useEffect } from 'react';
-import { NavigationHeader } from './components/common/NavigationHeader';
-import { CampCommandCenter } from './components/game/CampCommandCenter';
-import { AILabHub } from './components/ai/AILabHub';
-import { RivalModeView } from './components/rival/RivalModeView';
-import { IntelligenceHub } from './components/analytics/IntelligenceHub';
-import { GameState, Action, HintExplanation } from './types/game';
-import { api } from './services/api';
-import { AlertCircle } from 'lucide-react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
+import { NavigationHeader } from "./components/common/NavigationHeader";
+import { StorySurvival } from "./components/game/StorySurvival";
+import { Dialog } from "./components/ui/Dialog";
+import {
+  GameState,
+  ActionOption,
+  HintExplanation,
+  StateTransition,
+  GameResponse,
+} from "./types/game";
+import { api, ApiError } from "./services/api";
+import { AlertCircle, Compass, LoaderCircle, RotateCcw, X } from "lucide-react";
+
+const AILabHub = lazy(() =>
+  import("./components/ai/AILabHub").then((m) => ({ default: m.AILabHub })),
+);
+const RivalModeView = lazy(() =>
+  import("./components/rival/RivalModeView").then((m) => ({
+    default: m.RivalModeView,
+  })),
+);
+const IntelligenceHub = lazy(() =>
+  import("./components/analytics/IntelligenceHub").then((m) => ({
+    default: m.IntelligenceHub,
+  })),
+);
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<string>('game');
+  const [activeTab, setActiveTab] = useState("game");
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [validActions, setValidActions] = useState<Action[]>([]);
+  const [actionOptions, setActionOptions] = useState<ActionOption[]>([]);
   const [activeHint, setActiveHint] = useState<HintExplanation | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [latestTransition, setLatestTransition] =
+    useState<StateTransition | null>(null);
+  const [loading, setLoading] = useState(true);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
-
-  // Initialize or resume game session
-  const initializeGame = async (seed?: string) => {
-    setLoading(true);
-    setErrorBanner(null);
-    try {
-      const data = await api.game.start(seed);
-      setGameState(data.state);
-      setValidActions(data.valid_actions);
-      setActiveHint(null);
-      localStorage.setItem('stranded_last_game_id', data.state.game_id);
-    } catch (err: any) {
-      console.error('Initialization error:', err);
-      setErrorBanner(`Failed to connect to game server: ${err.message}. Ensure backend is running.`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    initializeGame();
+  const [confirmRestart, setConfirmRestart] = useState(false);
+  const busy = useRef(false);
+  const apply = useCallback((data: GameResponse) => {
+    setGameState(data.state);
+    setActionOptions(
+      data.action_options ||
+        data.valid_actions.map((action) => ({
+          action,
+          available: true,
+          unavailable_reason: null,
+        })),
+    );
+    localStorage.setItem("stranded_last_game_id", data.state.game_id);
   }, []);
-
-  // Action execution handler
-  const handlePerformAction = async (actionId: string) => {
-    if (!gameState) return;
+  const initializeGame = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
     setLoading(true);
     setErrorBanner(null);
     try {
-      const res = await api.game.action(gameState.game_id, actionId);
-      setGameState(res.state);
-      setValidActions(res.valid_actions);
-    } catch (err: any) {
-      console.error('Action error:', err);
-      setErrorBanner(err.message || 'Action could not be executed.');
+      const saved = localStorage.getItem("stranded_last_game_id");
+      let data: GameResponse;
+      if (saved) {
+        try {
+          data = await api.game.get(saved);
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.code !== "GAME_NOT_FOUND")
+            throw err;
+          data = await api.game.start();
+        }
+      } else data = await api.game.start();
+      apply(data);
+      setActiveHint(null);
+      setLatestTransition(null);
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error
+          ? err.message
+          : "The island could not be reached. Try again.",
+      );
     } finally {
+      busy.current = false;
+      setLoading(false);
+    }
+  }, [apply]);
+  useEffect(() => {
+    void initializeGame();
+  }, [initializeGame]);
+
+  const handlePerformAction = async (id: string) => {
+    if (!gameState || busy.current) return;
+    const option = actionOptions.find((o) => o.action.id === id);
+    if (!option?.available) {
+      setErrorBanner(
+        option?.unavailable_reason ||
+          "This action is no longer available. Choose another move.",
+      );
+      return;
+    }
+    busy.current = true;
+    setLoading(true);
+    setErrorBanner(null);
+    try {
+      const res = await api.game.action(gameState.game_id, id);
+      apply(res);
+      setLatestTransition(res.transition);
+      setActiveHint(null);
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error ? err.message : "Action could not be completed.",
+      );
+    } finally {
+      busy.current = false;
       setLoading(false);
     }
   };
-
-  // AI Hint handler
   const handleRequestHint = async () => {
-    if (!gameState) return;
+    if (
+      !gameState ||
+      busy.current ||
+      gameState.hint_cooldown > 0 ||
+      gameState.hints_remaining <= 0 ||
+      gameState.game_status !== "ACTIVE"
+    )
+      return;
+    busy.current = true;
     setLoading(true);
     setErrorBanner(null);
     try {
       const res = await api.game.hint(gameState.game_id);
+      apply(res);
       setActiveHint(res.hint);
-      setGameState(res.state);
-    } catch (err: any) {
-      console.error('Hint error:', err);
-      setErrorBanner(err.message || 'Hint advisor currently unavailable.');
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error ? err.message : "Your advisor is unavailable.",
+      );
     } finally {
+      busy.current = false;
       setLoading(false);
     }
   };
-
-  // Restart handler
-  const handleRestart = async () => {
-    if (gameState) {
-      setLoading(true);
-      setErrorBanner(null);
-      try {
-        const res = await api.game.restart(gameState.game_id);
-        setGameState(res.state);
-        setValidActions(res.valid_actions);
-        setActiveHint(null);
-      } catch (err: any) {
-        console.error('Restart error:', err);
-        initializeGame();
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      initializeGame();
+  const restart = async () => {
+    if (!gameState || busy.current) return;
+    busy.current = true;
+    setLoading(true);
+    setErrorBanner(null);
+    setConfirmRestart(false);
+    try {
+      apply(await api.game.restart(gameState.game_id));
+      setActiveHint(null);
+      setLatestTransition(null);
+      setActiveTab("game");
+    } catch (err) {
+      setErrorBanner(
+        err instanceof Error
+          ? err.message
+          : "Could not restart the expedition.",
+      );
+    } finally {
+      busy.current = false;
+      setLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen flex flex-col justify-between text-slate-100 bg-[#080c14]">
-      <div>
-        {/* Navigation Bar */}
-        <NavigationHeader
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          gameState={gameState}
-          onRestart={handleRestart}
-          loading={loading}
-        />
-
-        {/* Global Error Banner */}
-        {errorBanner && (
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 mb-4">
-            <div className="p-3.5 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-200 text-xs font-mono flex items-center justify-between gap-3 shadow-lg">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />
-                <span>{errorBanner}</span>
-              </div>
-              <button
-                onClick={() => setErrorBanner(null)}
-                className="text-slate-400 hover:text-white px-2 py-0.5 text-[11px] cursor-pointer"
-              >
-                Dismiss
+    <div
+      className={`app-shell ${activeTab === "game" ? "island-mode" : "workbench-mode"}`}
+    >
+      <NavigationHeader
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        gameState={gameState}
+        onRestart={() => setConfirmRestart(true)}
+        loading={loading}
+      />
+      {errorBanner && (
+        <div className="connection-banner" role="alert">
+          <AlertCircle size={18} />
+          <span>{errorBanner}</span>
+          {!gameState && (
+            <button
+              className="text-button"
+              onClick={initializeGame}
+              disabled={loading}
+            >
+              Retry connection
+            </button>
+          )}
+          {gameState && (
+            <button
+              className="icon-button"
+              aria-label="Dismiss error"
+              onClick={() => setErrorBanner(null)}
+            >
+              <X size={17} />
+            </button>
+          )}
+        </div>
+      )}
+      <main className={activeTab === "game" ? "island-main" : "workbench-main"}>
+        {activeTab === "game" && gameState && (
+          <StorySurvival
+            gameState={gameState}
+            actionOptions={actionOptions}
+            activeHint={activeHint}
+            latestTransition={latestTransition}
+            loading={loading}
+            onSelectAction={handlePerformAction}
+            onRequestHint={handleRequestHint}
+            onDismissHint={() => setActiveHint(null)}
+            onRestart={() => setConfirmRestart(true)}
+          />
+        )}
+        {activeTab === "game" && !gameState && (
+          <div className="arrival-screen">
+            <Compass size={44} />
+            <span className="eyebrow">AN UNCHARTED SHORE</span>
+            <h1>Your expedition awaits.</h1>
+            <p>
+              {loading
+                ? "Finding a passage to the island…"
+                : "Reconnect to continue your expedition."}
+            </p>
+            {loading ? (
+              <LoaderCircle className="animate-spin" size={24} />
+            ) : (
+              <button className="primary-button" onClick={initializeGame}>
+                Retry connection
               </button>
-            </div>
+            )}
           </div>
         )}
-
-        {/* Main Content Body */}
-        <main className="max-w-7xl mx-auto px-4 lg:px-8 pb-12">
-          {/* PILLAR 1: Core Survival Camp Command Center */}
-          {activeTab === 'game' && gameState && (
-            <CampCommandCenter
+        <Suspense
+          fallback={
+            <div
+              className="field-panel p-6 flex items-center gap-3"
+              role="status"
+            >
+              <LoaderCircle size={18} className="animate-spin" /> Opening
+              expedition tools…
+            </div>
+          }
+        >
+          {activeTab === "ai-lab" && (
+            <AILabHub
               gameState={gameState}
-              validActions={validActions}
-              activeHint={activeHint}
-              loading={loading}
               onSelectAction={handlePerformAction}
-              onRequestHint={handleRequestHint}
-              onRestart={handleRestart}
+              onNavigateToGame={() => setActiveTab("game")}
             />
           )}
-
-          {/* PILLAR 2: Unified AI Algorithm Laboratory */}
-          {activeTab === 'ai-lab' && (
-            <AILabHub gameState={gameState} />
-          )}
-
-          {/* PILLAR 3: Rival Survivor Adversarial Duel */}
-          {activeTab === 'rival' && (
-            <RivalModeView />
-          )}
-
-          {/* PILLAR 4: Telemetry & Course Documentation */}
-          {activeTab === 'analytics' && (
+          {activeTab === "rival" && <RivalModeView />}
+          {activeTab === "analytics" && (
             <IntelligenceHub gameState={gameState} />
           )}
-        </main>
-      </div>
-
-      {/* Minimal Clean Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/80 py-3.5 px-6 text-xs text-slate-500 font-mono">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-400">STRANDED</span>
-            <span>•</span>
-            <span>Adaptive AI Survival Simulation</span>
+        </Suspense>
+      </main>
+      {confirmRestart && (
+        <Dialog
+          title="Begin a new expedition?"
+          onClose={() => setConfirmRestart(false)}
+        >
+          <p>
+            Your current shelter, supplies, and boat progress will be reset.
+            You’ll return to the shore on day one.
+          </p>
+          <div className="dialog-actions">
+            <button
+              className="secondary-button"
+              onClick={() => setConfirmRestart(false)}
+            >
+              Keep exploring
+            </button>
+            <button
+              className="primary-button"
+              disabled={loading || !gameState}
+              onClick={restart}
+            >
+              <RotateCcw size={16} /> Restart expedition
+            </button>
           </div>
-          <div className="text-[11px] text-slate-600 flex items-center gap-2">
-            <span>FastAPI Backend</span>
-            <span>•</span>
-            <span>React + TypeScript + React Flow + Recharts</span>
-          </div>
-        </div>
-      </footer>
+        </Dialog>
+      )}
     </div>
   );
 }
-
 export default App;

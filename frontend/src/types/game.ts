@@ -25,7 +25,7 @@ export interface GameState {
   };
 
   location: string;
-  weather: 'clear' | 'cloudy' | 'rainy' | 'stormy' | string;
+  weather: "clear" | "cloudy" | "rainy" | "stormy" | string;
   discovered_locations: string[];
   active_effects: string[];
   current_objective: string;
@@ -54,7 +54,7 @@ export interface GameState {
     escape_complexity: number;
   };
 
-  game_status: 'ACTIVE' | 'WON' | 'LOST';
+  game_status: "ACTIVE" | "WON" | "LOST";
   status_reason?: string;
   seed?: string;
   recent_events: string[];
@@ -69,7 +69,13 @@ export interface Action {
   id: string;
   name: string;
   description: string;
-  category: 'SURVIVAL' | 'EXPLORATION' | 'CRAFTING' | 'ESCAPE' | 'REST' | string;
+  category:
+    | "SURVIVAL"
+    | "EXPLORATION"
+    | "CRAFTING"
+    | "ESCAPE"
+    | "REST"
+    | string;
   energy_cost: number;
   water_cost: number;
   food_cost: number;
@@ -108,4 +114,16 @@ export interface HintExplanation {
   strategic_objective: string;
   hints_remaining: number;
   cooldown_turns: number;
+}
+
+export interface ActionOption {
+  action: Action;
+  available: boolean;
+  unavailable_reason: string | null;
+}
+
+export interface GameResponse {
+  state: GameState;
+  valid_actions: Action[];
+  action_options: ActionOption[];
 }
