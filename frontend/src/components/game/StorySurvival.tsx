@@ -109,6 +109,8 @@ export function StorySurvival({
   const dayText =
     state.day === 1 && state.player_profile.total_actions === 0
       ? "You made it ashore. Now the first task is simple: stay alive long enough to find a way off this island."
+      : state.health < 25
+        ? "You are badly hurt. Recover at camp before risking another demanding expedition."
       : state.water < 25
         ? "Your water is running low. The next move could be the difference between a productive day and a difficult night."
         : state.food < 25

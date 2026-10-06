@@ -35,6 +35,7 @@ const IntelligenceHub = lazy(() =>
 
 export function App() {
   const [activeTab, setActiveTab] = useState("game");
+  const [expeditionVersion, setExpeditionVersion] = useState(0);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [actionOptions, setActionOptions] = useState<ActionOption[]>([]);
   const [activeHint, setActiveHint] = useState<HintExplanation | null>(null);
@@ -151,6 +152,7 @@ export function App() {
     setConfirmRestart(false);
     try {
       apply(await api.game.restart(gameState.game_id));
+      setExpeditionVersion(version => version + 1);
       setActiveHint(null);
       setLatestTransition(null);
       setActiveTab("game");
@@ -203,6 +205,7 @@ export function App() {
       <main className={activeTab === "game" ? "island-main" : "workbench-main"}>
         {activeTab === "game" && gameState && (
           <StorySurvival
+            key={`${gameState.game_id}-${expeditionVersion}`}
             gameState={gameState}
             actionOptions={actionOptions}
             activeHint={activeHint}
