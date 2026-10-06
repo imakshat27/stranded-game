@@ -41,27 +41,44 @@ def _resolve_state(req_game_id: str | None, req_state: GameState | None, db: Ses
     return GameEngine.create_new_game()
 
 
+def _run_search(algorithm: str, state: GameState, max_depth: int, max_nodes: int) -> SearchResult:
+    name = algorithm.lower().replace("-", "_").replace(" ", "_")
+    problem = SearchProblem(initial_state=state, max_depth=max_depth, max_nodes=max_nodes)
+    if name == "bfs":
+        return breadth_first_search(problem, max_nodes=max_nodes)
+    if name == "dfs":
+        return depth_first_search(problem, max_depth=max_depth, max_nodes=max_nodes)
+    if name == "ids":
+        return iterative_deepening_search(problem, max_depth=max_depth, max_nodes=max_nodes)
+    if name == "ucs":
+        return uniform_cost_search(problem, max_nodes=max_nodes)
+    if name in ("best_first", "greedy"):
+        return best_first_search(problem, max_nodes=max_nodes)
+    if name in ("hill_climbing", "hc"):
+        return hill_climbing_search(problem, max_steps=min(max_depth, max_nodes))
+    if name == "astar":
+        return astar_search(problem, max_nodes=max_nodes)
+    raise ValueError(f"Unknown search algorithm: {algorithm}")
+
+
+def run_search(algorithm: str, state: GameState, max_depth: int, max_nodes: int) -> SearchResult:
+    result = _run_search(algorithm, state, max_depth, max_nodes)
+    if not result.tree_nodes:
+        from app.algorithms.base import SearchNode
+        result.tree_nodes = [SearchNode("S0", state.clone()).to_tree_node_dict(is_goal=state.escape_ready())]
+    if not result.visualization_steps:
+        result.visualization_steps = [{"step": 1, "current_node": result.tree_nodes[0]["id"], "explored_count": result.nodes_explored}]
+    return result
+
+
 @router.post("/search", response_model=ApiResponse)
 def execute_search(req: SearchRequest, db: Session = Depends(get_db)):
     """Execute a single search algorithm on a state."""
     state = _resolve_state(req.game_id, req.state, db)
-    problem = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-
-    algo = req.algorithm.lower().replace("-", "_").replace(" ", "_")
-    if algo == "bfs":
-        res = breadth_first_search(problem, max_nodes=req.max_nodes)
-    elif algo == "dfs":
-        res = depth_first_search(problem, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    elif algo == "ids":
-        res = iterative_deepening_search(problem, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    elif algo == "ucs":
-        res = uniform_cost_search(problem, max_nodes=req.max_nodes)
-    elif algo in ("best_first", "greedy"):
-        res = best_first_search(problem, max_nodes=req.max_nodes)
-    elif algo in ("hill_climbing", "hc"):
-        res = hill_climbing_search(problem, max_steps=req.max_depth)
-    else:  # default to A*
-        res = astar_search(problem, max_nodes=req.max_nodes)
+    try:
+        res = run_search(req.algorithm, state, req.max_depth, req.max_nodes)
+    except ValueError as exc:
+        return ApiResponse(success=False, error={"code": "INVALID_ALGORITHM", "message": str(exc)})
 
     # Persist benchmark run if associated with a game session
     if req.game_id:
@@ -83,19 +100,10 @@ def execute_search(req: SearchRequest, db: Session = Depends(get_db)):
 def visualize_search(req: SearchRequest, db: Session = Depends(get_db)):
     """Return step-by-step search progression nodes and edges for React Flow animation."""
     state = _resolve_state(req.game_id, req.state, db)
-    problem = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-
-    algo = req.algorithm.lower()
-    if algo == "bfs":
-        res = breadth_first_search(problem, max_nodes=req.max_nodes)
-    elif algo == "dfs":
-        res = depth_first_search(problem, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    elif algo == "ucs":
-        res = uniform_cost_search(problem, max_nodes=req.max_nodes)
-    elif algo in ("best_first", "greedy"):
-        res = best_first_search(problem, max_nodes=req.max_nodes)
-    else:
-        res = astar_search(problem, max_nodes=req.max_nodes)
+    try:
+        res = run_search(req.algorithm, state, req.max_depth, req.max_nodes)
+    except ValueError as exc:
+        return ApiResponse(success=False, error={"code": "INVALID_ALGORITHM", "message": str(exc)})
 
     return ApiResponse(
         success=True,
@@ -104,6 +112,7 @@ def visualize_search(req: SearchRequest, db: Session = Depends(get_db)):
             "success": res.success,
             "status": res.status,
             "steps": res.visualization_steps,
+            "visualization_steps": res.visualization_steps,
             "tree_nodes": res.tree_nodes,
             "tree_edges": res.tree_edges,
             "path": res.path,
@@ -118,117 +127,38 @@ def visualize_search(req: SearchRequest, db: Session = Depends(get_db)):
 
 @router.post("/compare", response_model=ApiResponse)
 def compare_algorithms(req: CompareRequest, db: Session = Depends(get_db)):
-    """Run BFS, DFS, IDS, UCS, Best-First, and A* on the identical state space and return comparative metrics."""
-    state = _resolve_state(req.game_id, req.state, db)
-
+    """Compare recorded traversals from one immutable scenario and equal budgets."""
+    state = _resolve_state(req.game_id, req.state, db).clone()
     results = []
-    # 1. BFS
-    prob_bfs = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    r_bfs = breadth_first_search(prob_bfs, max_nodes=req.max_nodes)
-    results.append({
-        "algorithm": "BFS",
-        "nodes_explored": r_bfs.nodes_explored,
-        "cost": r_bfs.cost,
-        "depth": r_bfs.depth,
-        "execution_time_ms": r_bfs.execution_time_ms,
-        "max_frontier": r_bfs.max_frontier_size,
-        "success": r_bfs.success,
-        "result": r_bfs.status,
-        "completeness": "Yes",
-        "optimality": "Shallowest Path"
+    traces = {}
+    for name in dict.fromkeys(req.algorithms or ["bfs", "dfs", "ids", "ucs", "best_first", "astar"]):
+        try:
+            result = run_search(name, state, req.max_depth, req.max_nodes)
+        except ValueError as exc:
+            return ApiResponse(success=False, error={"code": "INVALID_ALGORITHM", "message": str(exc)})
+        results.append({
+            "algorithm": result.algorithm, "nodes_explored": result.nodes_explored,
+            "cost": result.cost, "depth": result.depth,
+            "route_length": len(result.path) if result.success else None,
+            "execution_time_ms": result.execution_time_ms,
+            "max_frontier": result.max_frontier_size, "success": result.success,
+            "result": result.status,
+            "completeness": "Subject to search limits",
+            "optimality": "No guarantee under bounded search",
+        })
+        if req.include_traces:
+            traces[name] = result.model_dump()
+    solved = [r for r in results if r["success"]]
+    return ApiResponse(success=True, data={
+        "comparison_table": results,
+        "benchmark_summary": {
+            "fastest_algorithm": min(solved, key=lambda r: r["execution_time_ms"])["algorithm"] if solved else None,
+            "least_nodes_explored": min(solved, key=lambda r: r["nodes_explored"])["algorithm"] if solved else None,
+            "lowest_cost": min(solved, key=lambda r: r["cost"])["algorithm"] if solved else None,
+        },
+        "traces": traces,
+        "limits": {"max_nodes": req.max_nodes, "max_depth": req.max_depth},
     })
-
-    # 2. DFS
-    prob_dfs = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    r_dfs = depth_first_search(prob_dfs, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    results.append({
-        "algorithm": "DFS",
-        "nodes_explored": r_dfs.nodes_explored,
-        "cost": r_dfs.cost,
-        "depth": r_dfs.depth,
-        "execution_time_ms": r_dfs.execution_time_ms,
-        "max_frontier": r_dfs.max_frontier_size,
-        "success": r_dfs.success,
-        "result": r_dfs.status,
-        "completeness": "No (Depth-Bounded)",
-        "optimality": "No"
-    })
-
-    # 3. IDS
-    prob_ids = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    r_ids = iterative_deepening_search(prob_ids, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    results.append({
-        "algorithm": "IDS",
-        "nodes_explored": r_ids.nodes_explored,
-        "cost": r_ids.cost,
-        "depth": r_ids.depth,
-        "execution_time_ms": r_ids.execution_time_ms,
-        "max_frontier": r_ids.max_frontier_size,
-        "success": r_ids.success,
-        "result": r_ids.status,
-        "completeness": "Yes",
-        "optimality": "Shallowest Path"
-    })
-
-    # 4. UCS
-    prob_ucs = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    r_ucs = uniform_cost_search(prob_ucs, max_nodes=req.max_nodes)
-    results.append({
-        "algorithm": "UCS",
-        "nodes_explored": r_ucs.nodes_explored,
-        "cost": r_ucs.cost,
-        "depth": r_ucs.depth,
-        "execution_time_ms": r_ucs.execution_time_ms,
-        "max_frontier": r_ucs.max_frontier_size,
-        "success": r_ucs.success,
-        "result": r_ucs.status,
-        "completeness": "Yes",
-        "optimality": "Cost Optimal"
-    })
-
-    # 5. Best-First
-    prob_bf = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    r_bf = best_first_search(prob_bf, max_nodes=req.max_nodes)
-    results.append({
-        "algorithm": "Best First",
-        "nodes_explored": r_bf.nodes_explored,
-        "cost": r_bf.cost,
-        "depth": r_bf.depth,
-        "execution_time_ms": r_bf.execution_time_ms,
-        "max_frontier": r_bf.max_frontier_size,
-        "success": r_bf.success,
-        "result": r_bf.status,
-        "completeness": "No (Greedy)",
-        "optimality": "No"
-    })
-
-    # 6. A*
-    prob_astar = SearchProblem(initial_state=state, max_depth=req.max_depth, max_nodes=req.max_nodes)
-    r_astar = astar_search(prob_astar, max_nodes=req.max_nodes)
-    results.append({
-        "algorithm": "A*",
-        "nodes_explored": r_astar.nodes_explored,
-        "cost": r_astar.cost,
-        "depth": r_astar.depth,
-        "execution_time_ms": r_astar.execution_time_ms,
-        "max_frontier": r_astar.max_frontier_size,
-        "success": r_astar.success,
-        "result": r_astar.status,
-        "completeness": "Yes",
-        "optimality": "Cost Optimal (Admissible Heuristic)"
-    })
-
-    return ApiResponse(
-        success=True,
-        data={
-            "comparison_table": results,
-            "benchmark_summary": {
-                "fastest_algorithm": min(results, key=lambda x: x["execution_time_ms"])["algorithm"],
-                "least_nodes_explored": min(results, key=lambda x: x["nodes_explored"])["algorithm"],
-                "lowest_cost": min(results, key=lambda x: x["cost"] if x["cost"] > 0 else 9999)["algorithm"]
-            }
-        }
-    )
 
 
 @router.post("/plan", response_model=ApiResponse)
@@ -242,7 +172,7 @@ def generate_strategic_plan(req: PlanRequest, db: Session = Depends(get_db)):
 @router.post("/replan", response_model=ApiResponse)
 def replan(req: ReplanRequest, db: Session = Depends(get_db)):
     """Evaluate plan validity against current state and replan if interrupted."""
-    state = _resolve_state(req.game_id, req.state, db)
+    state = _resolve_state(req.game_id, req.state, db).clone()
 
     # If simulation requested: simulate storm destruction of wood or health damage
     if req.simulate_storm_damage:

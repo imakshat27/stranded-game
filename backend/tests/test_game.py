@@ -97,3 +97,38 @@ def test_boat_building_and_win_condition():
     trans_launch = GameEngine.execute_action(state, "launch_escape")
     assert trans_launch.success is True
     assert state.game_status == "WON"
+
+
+def test_action_options_reveal_progression_and_terminal_locks():
+    from app.game.actions import ActionManager
+    from app.game.state import GameState
+
+    state = GameState(game_id="hud_rules", wood=6)
+    options = {o["action"]["id"]: o for o in ActionManager.get_action_options(state)}
+    assert options["build_boat_hull"]["available"]
+    assert not options["search_wreckage"]["available"]
+    assert "eastern_shore" in options["search_wreckage"]["unavailable_reason"]
+    state.boat_parts["hull"] = True
+    options = {o["action"]["id"]: o for o in ActionManager.get_action_options(state)}
+    assert not options["build_boat_hull"]["available"]
+    assert "already built" in options["build_boat_hull"]["unavailable_reason"]
+    for terminal in ["WON", "LOST"]:
+        state.game_status = terminal
+        assert all(not o["available"] for o in ActionManager.get_action_options(state))
+
+
+def test_probability_evidence_controls_override_weather_defaults():
+    from app.probability.bayesian import BayesianEngine
+
+    state = GameState(game_id="evidence_ui", weather="clear")
+    prior = BayesianEngine.get_storm_forecast(state, [])
+    observed = BayesianEngine.get_storm_forecast(state, ["barometer_drop", "cumulonimbus_buildup"])
+    assert prior["observed_count"] == 0
+    assert observed["observed_count"] == 2
+    assert observed["final_posterior"] > prior["final_posterior"]
+    state.weather = "stormy"
+    assert BayesianEngine.get_storm_forecast(state)["observed_count"] == 2
+    assert BayesianEngine.get_storm_forecast(state, [])["observed_count"] == 0
+    state.tools = 0
+    assert BayesianEngine.get_salvage_probability(state, [])["observed_count"] == 0
+    assert BayesianEngine.get_salvage_probability(state)["observed_count"] == 1

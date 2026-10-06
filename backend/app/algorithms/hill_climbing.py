@@ -40,7 +40,7 @@ def hill_climbing_search(problem: SearchProblem, max_steps: int = 30) -> SearchR
     step_count = 0
     total_explored = 1
 
-    while step_count < max_steps:
+    while step_count < max_steps and total_explored < problem.max_nodes:
         step_count += 1
         current_utility = evaluate_state_utility(current.state)
 
@@ -65,6 +65,8 @@ def hill_climbing_search(problem: SearchProblem, max_steps: int = 30) -> SearchR
 
         neighbors = []
         for action in problem.get_actions(current.state):
+            if total_explored >= problem.max_nodes:
+                break
             total_explored += 1
             next_state = problem.transition(current.state, action)
             utility = evaluate_state_utility(next_state)
@@ -117,7 +119,7 @@ def hill_climbing_search(problem: SearchProblem, max_steps: int = 30) -> SearchR
     return SearchResult(
         algorithm="Hill Climbing",
         success=problem.is_goal(current.state),
-        status="LOCAL_OPTIMUM" if not problem.is_goal(current.state) else "COMPLETED",
+        status=("COMPLETED" if problem.is_goal(current.state) else "LIMIT_REACHED" if total_explored >= problem.max_nodes or step_count >= max_steps else "LOCAL_OPTIMUM"),
         path=path_actions,
         action_names=act_names,
         cost=round(current.g_cost, 1),

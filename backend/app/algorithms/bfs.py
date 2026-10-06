@@ -50,7 +50,7 @@ def breadth_first_search(problem: SearchProblem, max_nodes: int = 1500) -> Searc
         current = frontier.popleft()
         explored_count += 1
 
-        if len(vis_steps) < 45 or explored_count % 10 == 0:
+        if explored_count <= max_nodes:
             act_label = current.action.name if current.action else "Base Camp (Start)"
             vis_steps.append({
                 "step": explored_count,
@@ -79,8 +79,8 @@ def breadth_first_search(problem: SearchProblem, max_nodes: int = 1500) -> Searc
                 max_frontier_size=max_frontier,
                 execution_time_ms=round(exec_time, 2),
                 depth=current.depth,
-                tree_nodes=tree_nodes[:60],
-                tree_edges=tree_edges[:60],
+                tree_nodes=tree_nodes,
+                tree_edges=tree_edges,
                 visualization_steps=vis_steps
             )
 
@@ -108,7 +108,7 @@ def breadth_first_search(problem: SearchProblem, max_nodes: int = 1500) -> Searc
                 visited.add(sig)
                 frontier.append(child)
 
-                if len(tree_nodes) < 70:
+                if len(tree_nodes) < max_nodes * 15 + 1:
                     tree_nodes.append(child.to_tree_node_dict(is_goal=problem.is_goal(next_state), step_cost=step_c))
                     tree_edges.append({
                         "id": f"e-{current.node_id}-{child_id}",
@@ -128,7 +128,7 @@ def breadth_first_search(problem: SearchProblem, max_nodes: int = 1500) -> Searc
         max_frontier_size=max_frontier,
         execution_time_ms=round(exec_time, 2),
         depth=0,
-        tree_nodes=tree_nodes[:60],
-        tree_edges=tree_edges[:60],
+        tree_nodes=tree_nodes,
+        tree_edges=tree_edges,
         visualization_steps=vis_steps
     )

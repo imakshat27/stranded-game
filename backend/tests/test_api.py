@@ -136,3 +136,67 @@ def test_analytics_and_knowledge_api():
     assert knowledge_res.status_code == 200
     assert "forward_chaining" in knowledge_res.json()["data"]
     assert "backward_chaining" in knowledge_res.json()["data"]
+
+
+def assert_action_options(data):
+    options = data["action_options"]
+    assert len(options) == 14
+    available_ids = {o["action"]["id"] for o in options if o["available"]}
+    assert available_ids == {a["id"] for a in data["valid_actions"]}
+    assert all(o["unavailable_reason"] for o in options if not o["available"])
+    assert all(o["unavailable_reason"] is None for o in options if o["available"])
+
+
+def test_action_options_follow_state_and_hint_updates():
+    start = client.post("/api/game/start", json={"seed": "hud_options"}).json()["data"]
+    assert_action_options(start)
+    boat = next(o for o in start["action_options"] if o["action"]["id"] == "build_boat_hull")
+    assert not boat["available"]
+    assert "wood" in boat["unavailable_reason"].lower()
+    game_id = start["state"]["game_id"]
+    assert_action_options(client.get(f"/api/game/{game_id}").json()["data"])
+    action = client.post(f"/api/game/{game_id}/action", json={"action_id": "gather_water"}).json()["data"]
+    assert_action_options(action)
+    hint = client.post(f"/api/game/{game_id}/hint").json()["data"]
+    assert_action_options(hint)
+    assert hint["state"]["hints_remaining"] == 2
+    assert hint["state"]["hint_cooldown"] > 0
+    restart = client.post(f"/api/game/{game_id}/restart").json()["data"]
+    assert_action_options(restart)
+    assert restart["state"]["day"] == 1
+
+
+def test_journey_actual_snapshots_and_isolated_alternatives():
+    state = client.post('/api/game/start', json={'seed': 'journey-test'}).json()['data']['state']
+    game_id = state['game_id']
+    after = client.post(f'/api/game/{game_id}/action', json={'action_id': 'collect_wood'}).json()['data']['state']
+    journey = client.get(f'/api/game/{game_id}/journey?turn=0').json()['data']
+    assert journey['current_turn'] == 1
+    assert journey['nodes'][0]['state'] == state
+    assert journey['nodes'][1]['state'] == after
+    assert journey['nodes'][1]['provenance'] == 'actual'
+    assert journey['alternatives']
+    assert all(n['provenance'] == 'simulated' for n in journey['alternatives'])
+    assert all(n['id'] != journey['nodes'][1]['id'] for n in journey['alternatives'])
+    assert client.get(f'/api/game/{game_id}').json()['data']['state'] == after
+    assert not client.get(f'/api/game/{game_id}/journey?turn=99').json()['success']
+    client.post(f'/api/game/{game_id}/restart')
+    reset = client.get(f'/api/game/{game_id}/journey').json()['data']
+    assert reset['current_turn'] == 0
+    assert len(reset['nodes']) == 1
+
+
+def test_visualize_dispatch_and_comparison_traces():
+    state = client.post('/api/game/start').json()['data']['state']
+    for algorithm, label in [('ids', 'IDS'), ('hill_climbing', 'Hill Climbing')]:
+        result = client.post('/api/ai/search/visualize', json={'state': state, 'algorithm': algorithm, 'max_nodes': 20, 'max_depth': 3}).json()
+        assert result['success']
+        assert result['data']['algorithm'] == label
+        assert result['data']['tree_nodes']
+    result = client.post('/api/ai/compare', json={'state': state, 'algorithms': ['bfs', 'astar'], 'max_nodes': 1, 'max_depth': 2, 'include_traces': True}).json()['data']
+    assert set(result['traces']) == {'bfs', 'astar'}
+    for trace in result['traces'].values():
+        assert trace['tree_nodes'][0]['vitals']['health'] == state['health']
+    assert result['benchmark_summary']['lowest_cost'] is None
+    assert all(row['route_length'] is None for row in result['comparison_table'])
+    assert not client.post('/api/ai/search/visualize', json={'algorithm': 'bogus'}).json()['success']

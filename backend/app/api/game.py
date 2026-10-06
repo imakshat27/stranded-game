@@ -1,6 +1,6 @@
 """Game lifecycle and gameplay API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.database.repository import GameRepository
@@ -22,7 +22,8 @@ def start_game(req: StartGameRequest = StartGameRequest(), db: Session = Depends
             success=True,
             data={
                 "state": new_state.model_dump(),
-                "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(new_state)]
+                "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(new_state)],
+                "action_options": ActionManager.get_action_options(new_state)
             }
         )
     except Exception as e:
@@ -45,7 +46,8 @@ def get_game_state(game_id: str, db: Session = Depends(get_db)):
         success=True,
         data={
             "state": state.model_dump(),
-            "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(state)]
+            "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(state)],
+            "action_options": ActionManager.get_action_options(state)
         }
     )
 
@@ -97,7 +99,8 @@ def perform_action(game_id: str, req: ActionRequest, db: Session = Depends(get_d
         data={
             "transition": transition.model_dump(),
             "state": transition.state_after.model_dump(),
-            "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(transition.state_after)]
+            "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(transition.state_after)],
+            "action_options": ActionManager.get_action_options(transition.state_after)
         }
     )
 
@@ -126,7 +129,9 @@ def request_hint(game_id: str, db: Session = Depends(get_db)):
         success=True,
         data={
             "hint": hint_exp.model_dump(),
-            "state": state.model_dump()
+            "state": state.model_dump(),
+            "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(state)],
+            "action_options": ActionManager.get_action_options(state)
         }
     )
 
@@ -141,6 +146,57 @@ def restart_game(game_id: str, db: Session = Depends(get_db)):
         success=True,
         data={
             "state": new_state.model_dump(),
-            "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(new_state)]
+            "valid_actions": [a.model_dump() for a in ActionManager.get_valid_actions(new_state)],
+            "action_options": ActionManager.get_action_options(new_state)
         }
     )
+
+
+@router.get("/{game_id}/journey", response_model=ApiResponse)
+def get_journey(game_id: str, turn: int | None = Query(default=None, ge=0), db: Session = Depends(get_db)):
+    """Actual action snapshots and optional one-step hypothetical branches; never saves state."""
+    import json
+    from app.database.models import ActionHistoryRecord
+    from app.game.state import GameState
+    from app.game.transitions import apply_action
+
+    state = GameRepository.get_game(db, game_id)
+    if not state:
+        return ApiResponse(success=False, error={"code": "GAME_NOT_FOUND", "message": "Expedition not found."})
+    # total_actions resets on restart even though the historical audit records are retained.
+    count = int(state.player_profile.get("total_actions", 0))
+    records = db.query(ActionHistoryRecord).filter(ActionHistoryRecord.game_id == game_id).order_by(ActionHistoryRecord.id.desc()).limit(count).all() if count else []
+    records.reverse()
+    nodes, edges = [], []
+    snapshots = {}
+    missing = 0
+    for index, record in enumerate(records):
+        try:
+            before = GameState(**json.loads(record.state_before_json or "null"))
+            after = GameState(**json.loads(record.state_after_json or "null"))
+        except (ValueError, TypeError):
+            missing += 1
+            continue
+        snapshots[index] = before
+        snapshots[index + 1] = after
+        if not nodes:
+            nodes.append({"id": f"actual-{index}", "label": "Starting state" if index == 0 else "First recorded state", "turn": index, "provenance": "actual", "state": before.model_dump()})
+        elif nodes[-1]["id"] != f"actual-{index}":
+            nodes.append({"id": f"actual-{index}", "label": "History resumes", "turn": index, "provenance": "actual", "state": before.model_dump()})
+        action = ActionManager.get_action(record.action)
+        node_id = f"actual-{index + 1}"
+        nodes.append({"id": node_id, "label": action.name if action else record.action, "action_id": record.action, "turn": index + 1, "provenance": "actual", "state": after.model_dump()})
+        edges.append({"id": f"move-{record.id}", "source": f"actual-{index}", "target": node_id, "provenance": "actual"})
+    if not nodes:
+        nodes.append({"id": f"actual-{count}", "label": "Current state", "turn": count, "provenance": "actual", "state": state.model_dump()})
+    snapshots[count] = state
+    alternatives = []
+    if turn is not None:
+        selected = snapshots.get(turn)
+        if selected is None:
+            return ApiResponse(success=False, error={"code": "SNAPSHOT_UNAVAILABLE", "message": "This turn has no recorded snapshot."})
+        for action in ActionManager.get_valid_actions(selected):
+            transition = apply_action(selected.clone(), action, deterministic=True)
+            if transition.success:
+                alternatives.append({"id": f"preview-{turn}-{action.id}", "label": action.name, "action_id": action.id, "turn": turn + 1, "parent_id": f"actual-{turn}", "provenance": "simulated", "state": transition.state_after.model_dump()})
+    return ApiResponse(success=True, data={"nodes": nodes, "edges": edges, "alternatives": alternatives, "current_turn": count, "missing_snapshots": missing})

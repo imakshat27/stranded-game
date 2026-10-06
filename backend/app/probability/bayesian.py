@@ -92,7 +92,7 @@ class BayesianEngine:
                 description="Rapid atmospheric pressure plunge indicating an approaching oceanic depression.",
                 likelihood_if_true=0.85,
                 likelihood_if_false=0.15,
-                observed="barometer_drop" in (observed_signals or ["barometer_drop"] if state.weather in ("rainy", "stormy") else [])
+                observed="barometer_drop" in (observed_signals if observed_signals is not None else (["barometer_drop"] if state.weather in ("rainy", "stormy") else []))
             ),
             EvidenceItem(
                 id="cumulonimbus_buildup",
@@ -100,7 +100,7 @@ class BayesianEngine:
                 description="Dense anvil storm clouds gathering along the eastern horizon.",
                 likelihood_if_true=0.90,
                 likelihood_if_false=0.20,
-                observed="cumulonimbus_buildup" in (observed_signals or ["cumulonimbus_buildup"] if state.weather == "stormy" else [])
+                observed="cumulonimbus_buildup" in (observed_signals if observed_signals is not None else (["cumulonimbus_buildup"] if state.weather == "stormy" else []))
             ),
             EvidenceItem(
                 id="swell_intensity",
@@ -132,7 +132,7 @@ class BayesianEngine:
                 description="Exposed submerged reefs and hull sections normally covered by 10 feet of surf.",
                 likelihood_if_true=0.80,
                 likelihood_if_false=0.30,
-                observed="low_tide_window" in (observed_signals or ["low_tide_window"])
+                observed="low_tide_window" in (observed_signals if observed_signals is not None else ["low_tide_window"])
             ),
             EvidenceItem(
                 id="iron_tools_equipped",

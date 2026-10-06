@@ -101,6 +101,19 @@ class ActionManager:
         return True, None
 
     @classmethod
+    def get_action_options(cls, state: GameState) -> List[Dict[str, Any]]:
+        """Expose the full catalog with authoritative availability for the HUD."""
+        options = []
+        for action in cls.get_all_actions().values():
+            available, reason = cls.is_action_valid(state, action)
+            options.append({
+                "action": action.model_dump(),
+                "available": available,
+                "unavailable_reason": reason,
+            })
+        return options
+
+    @classmethod
     def get_valid_actions(cls, state: GameState) -> List[Action]:
         """Returns all actions that can legally be taken from the current state."""
         valid: List[Action] = []

@@ -9,16 +9,17 @@ class SearchRequest(BaseModel):
     game_id: Optional[str] = None
     state: Optional[GameState] = None
     algorithm: str = "astar"  # astar, bfs, dfs, ids, ucs, best_first, hill_climbing
-    max_depth: int = 15
-    max_nodes: int = 1500
+    max_depth: int = Field(default=15, ge=1, le=30)
+    max_nodes: int = Field(default=1500, ge=1, le=4000)
 
 
 class CompareRequest(BaseModel):
     game_id: Optional[str] = None
     state: Optional[GameState] = None
     algorithms: Optional[List[str]] = Field(default_factory=lambda: ["bfs", "dfs", "ids", "ucs", "best_first", "astar"])
-    max_depth: int = 12
-    max_nodes: int = 1000
+    max_depth: int = Field(default=12, ge=1, le=30)
+    max_nodes: int = Field(default=1000, ge=1, le=4000)
+    include_traces: bool = False
 
 
 class PlanRequest(BaseModel):

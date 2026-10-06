@@ -23,9 +23,11 @@ def depth_limited_search(
     tree_edges: Optional[List[Dict]] = None
 ) -> Tuple[Optional[SearchNode], bool]:
     """Recursive Depth-Limited Search helper. Returns (goal_node, cutoff_occurred)."""
+    if explored_tracker[0] >= max_nodes:
+        return None, True
     explored_tracker[0] += 1
 
-    if len(vis_steps) < 45 and explored_tracker[0] % 3 == 0:
+    if explored_tracker[0] <= max_nodes:
         act_label = node.action.name if node.action else "Base Camp (Start)"
         vis_steps.append({
             "step": explored_tracker[0],
@@ -48,10 +50,12 @@ def depth_limited_search(
 
     cutoff = False
     for action in problem.get_actions(node.state):
+        if explored_tracker[0] >= max_nodes:
+            return None, True
         next_state = problem.transition(node.state, action)
         step_c = problem.step_cost(node.state, action)
         child = SearchNode(
-            node_id=f"{node.node_id}-{action.id[:3]}",
+            node_id=f"{node.node_id}-{action.id}",
             state=next_state,
             parent=node,
             action=action,
@@ -59,7 +63,7 @@ def depth_limited_search(
             depth=node.depth + 1
         )
 
-        if tree_nodes is not None and len(tree_nodes) < 70 and not any(tn["id"] == child.node_id for tn in tree_nodes):
+        if tree_nodes is not None and len(tree_nodes) < max_nodes * 15 + 1 and not any(tn["id"] == child.node_id for tn in tree_nodes):
             tree_nodes.append(child.to_tree_node_dict(is_goal=problem.is_goal(next_state), step_cost=step_c))
             if tree_edges is not None:
                 tree_edges.append({
@@ -139,8 +143,8 @@ def iterative_deepening_search(problem: SearchProblem, max_depth: int = 15, max_
                 max_frontier_size=depth_limit + 1,
                 execution_time_ms=round(exec_time, 2),
                 depth=goal_node.depth,
-                tree_nodes=tree_nodes[:70],
-                tree_edges=tree_edges[:70],
+                tree_nodes=tree_nodes,
+                tree_edges=tree_edges,
                 visualization_steps=vis_steps
             )
 
@@ -151,14 +155,14 @@ def iterative_deepening_search(problem: SearchProblem, max_depth: int = 15, max_
     return SearchResult(
         algorithm="IDS",
         success=False,
-        status="LIMIT_REACHED" if total_explored[0] >= max_nodes else "NO_SOLUTION",
+        status="LIMIT_REACHED" if total_explored[0] >= max_nodes or cutoff else "NO_SOLUTION",
         path=[],
         cost=0.0,
         nodes_explored=total_explored[0],
         max_frontier_size=max_depth,
         execution_time_ms=round(exec_time, 2),
         depth=0,
-        tree_nodes=tree_nodes[:70],
-        tree_edges=tree_edges[:70],
+        tree_nodes=tree_nodes,
+        tree_edges=tree_edges,
         visualization_steps=vis_steps
     )
