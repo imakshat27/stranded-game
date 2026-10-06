@@ -45,6 +45,7 @@ def best_first_search(problem: SearchProblem, max_nodes: int = 1500) -> SearchRe
 
     tree_nodes: List[Dict] = [root.to_tree_node_dict(is_goal=problem.is_goal(root.state))]
     tree_edges: List[Dict] = []
+    depth_cutoff = False
     vis_steps: List[Dict] = []
 
     while pq:
@@ -85,7 +86,10 @@ def best_first_search(problem: SearchProblem, max_nodes: int = 1500) -> SearchRe
                 visualization_steps=vis_steps
             )
 
-        if explored_count >= max_nodes or current.depth >= problem.max_depth:
+        if explored_count >= max_nodes:
+            break
+        if current.depth >= problem.max_depth:
+            depth_cutoff = True
             continue
 
         for action in problem.get_actions(current.state):
@@ -124,7 +128,7 @@ def best_first_search(problem: SearchProblem, max_nodes: int = 1500) -> SearchRe
     return SearchResult(
         algorithm="Best First",
         success=False,
-        status="LIMIT_REACHED" if explored_count >= max_nodes else "NO_SOLUTION",
+        status="LIMIT_REACHED" if explored_count >= max_nodes or depth_cutoff else "NO_SOLUTION",
         path=[],
         cost=0.0,
         nodes_explored=explored_count,

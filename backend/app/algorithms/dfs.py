@@ -40,6 +40,7 @@ def depth_first_search(problem: SearchProblem, max_depth: int = 15, max_nodes: i
 
     tree_nodes: List[Dict] = [root.to_tree_node_dict(is_goal=problem.is_goal(root.state))]
     tree_edges: List[Dict] = []
+    depth_cutoff = False
     vis_steps: List[Dict] = []
 
     while stack:
@@ -79,7 +80,10 @@ def depth_first_search(problem: SearchProblem, max_depth: int = 15, max_nodes: i
                 visualization_steps=vis_steps
             )
 
-        if explored_count >= max_nodes or current.depth >= max_depth:
+        if explored_count >= max_nodes:
+            break
+        if current.depth >= max_depth:
+            depth_cutoff = True
             continue
 
         for action in reversed(problem.get_actions(current.state)):
@@ -115,7 +119,7 @@ def depth_first_search(problem: SearchProblem, max_depth: int = 15, max_nodes: i
     return SearchResult(
         algorithm="DFS",
         success=False,
-        status="LIMIT_REACHED" if explored_count >= max_nodes else "NO_SOLUTION",
+        status="LIMIT_REACHED" if explored_count >= max_nodes or depth_cutoff else "NO_SOLUTION",
         path=[],
         cost=0.0,
         nodes_explored=explored_count,

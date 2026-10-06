@@ -200,3 +200,39 @@ def test_visualize_dispatch_and_comparison_traces():
     assert result['benchmark_summary']['lowest_cost'] is None
     assert all(row['route_length'] is None for row in result['comparison_table'])
     assert not client.post('/api/ai/search/visualize', json={'algorithm': 'bogus'}).json()['success']
+
+
+def test_complete_traces_budgets_and_goal_at_root():
+    state = client.post('/api/game/start').json()['data']['state']
+    algorithms = ['bfs', 'dfs', 'ids', 'ucs', 'best_first', 'astar', 'hill_climbing']
+    data = client.post('/api/ai/compare', json={'state': state, 'algorithms': algorithms, 'max_nodes': 25, 'max_depth': 3, 'include_traces': True}).json()['data']
+    assert len(data['comparison_table']) == len(algorithms)
+    for trace in data['traces'].values():
+        assert trace['nodes_explored'] <= 25
+        ids = [n['id'] for n in trace['tree_nodes']]
+        assert len(ids) == len(set(ids))
+        assert all(step.get('current_node') in ids for step in trace['visualization_steps'])
+    state['boat_parts'] = dict.fromkeys(state['boat_parts'], True)
+    data = client.post('/api/ai/compare', json={'state': state, 'algorithms': algorithms, 'max_nodes': 25, 'max_depth': 3, 'include_traces': True}).json()['data']
+    assert all(row['success'] for row in data['comparison_table'])
+    assert all(trace['tree_nodes'][0]['is_goal'] for trace in data['traces'].values())
+    assert data['benchmark_summary']['lowest_cost'] is not None
+
+
+def test_legacy_journey_missing_snapshots_and_crisis_preview():
+    from app.database.session import SessionLocal
+    from app.database.models import ActionHistoryRecord
+    state = client.post('/api/game/start').json()['data']['state']
+    game_id = state['game_id']
+    after = client.post(f'/api/game/{game_id}/action', json={'action_id': 'collect_wood'}).json()['data']['state']
+    with SessionLocal() as db:
+        record = db.query(ActionHistoryRecord).filter_by(game_id=game_id).first()
+        record.state_before_json = None
+        db.commit()
+    data = client.get(f'/api/game/{game_id}/journey').json()['data']
+    assert data['missing_snapshots'] == 1
+    assert data['nodes'][-1]['state'] == after
+    assert client.get(f'/api/game/{game_id}/journey?turn=1').json()['success']
+    plan = client.post('/api/ai/plan', json={'game_id': game_id}).json()['data']
+    client.post('/api/ai/replan', json={'game_id': game_id, 'current_plan': plan, 'simulate_storm_damage': True})
+    assert client.get(f'/api/game/{game_id}').json()['data']['state'] == after

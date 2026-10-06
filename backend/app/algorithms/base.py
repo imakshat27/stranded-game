@@ -71,7 +71,7 @@ class SearchNode:
         if not self.parent:
             commentary = "Starting state at Base Camp. AI is evaluating immediate resource gathering and survival priorities."
         elif is_goal:
-            commentary = f"Goal state achieved via '{act_name}'! Catamaran components assembled and escape launched."
+            commentary = f"Goal state achieved via '{act_name}'! All boat parts are assembled. The vessel is ready for launch."
         elif self.action and (self.action.id.startswith("build_") or self.action.id.startswith("rig_") or self.action.id.startswith("craft_")):
             commentary = f"Crucial milestone: Executed '{act_name}'. Completed vital escape vessel component."
         elif self.action and "wood" in self.action.id:
@@ -123,7 +123,7 @@ class SearchNode:
         w_band = round(self.state.water / 15.0)
         f_band = round(self.state.food / 15.0)
         e_band = round(self.state.energy / 20.0)
-        return f"{self.state.location}:{parts_tuple}:{self.state.wood}:{self.state.rope}:{self.state.metal}:{w_band}:{f_band}:{e_band}:{self.state.shelter_level}"
+        return f"{self.state.location}:{round(self.state.health / 10.0)}:{self.state.tools}:{self.state.weather}:{self.state.actions_remaining}:{parts_tuple}:{self.state.wood}:{self.state.rope}:{self.state.metal}:{w_band}:{f_band}:{e_band}:{self.state.shelter_level}"
 
 
 class SearchResult(BaseModel):
