@@ -139,28 +139,28 @@ export const RivalModeView: React.FC = () => {
                 <button
                   onClick={() => handleRunRivalAlgorithm('claim_spring')}
                   disabled={loading}
-                  className="p-1.5 rounded bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 text-cyan-200 transition text-left"
+                  className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-cyan-300 transition text-left cursor-pointer disabled:opacity-50 font-medium"
                 >
                   Secure Water Spring
                 </button>
                 <button
                   onClick={() => handleRunRivalAlgorithm('salvage_wreck')}
                   disabled={loading}
-                  className="p-1.5 rounded bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/30 text-amber-200 transition text-left"
+                  className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-amber-300 transition text-left cursor-pointer disabled:opacity-50 font-medium"
                 >
                   Raid Shipwreck Salvage
                 </button>
                 <button
                   onClick={() => handleRunRivalAlgorithm('build_vessel')}
                   disabled={loading}
-                  className="p-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/30 text-emerald-200 transition text-left"
+                  className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-emerald-300 transition text-left cursor-pointer disabled:opacity-50 font-medium"
                 >
                   Construct Vessel Ribs
                 </button>
                 <button
                   onClick={() => handleRunRivalAlgorithm('rest_and_guard')}
                   disabled={loading}
-                  className="p-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition text-left"
+                  className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300 transition text-left cursor-pointer disabled:opacity-50 font-medium"
                 >
                   Fortify Base & Rest
                 </button>

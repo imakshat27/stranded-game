@@ -79,23 +79,23 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ gameState }) => {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={fetchPlan}
               disabled={loading || simulating}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition"
+              className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
             >
-              <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Generate Fresh Plan</span>
+              <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+              <span>{loading ? 'Planning...' : 'Regenerate Plan'}</span>
             </button>
 
             <button
               onClick={handleSimulateCrisisAndReplan}
               disabled={loading || simulating}
-              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-rose-700 to-amber-700 hover:from-rose-600 hover:to-amber-600 text-white font-medium text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 transition active:scale-95"
+              className="px-3.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900/80 border border-rose-500/40 text-rose-200 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
             >
-              <CloudLightning className={`w-3.5 h-3.5 ${simulating ? 'animate-bounce' : ''}`} />
-              <span>Simulate Crisis & Trigger Replanner</span>
+              <CloudLightning className={`w-3.5 h-3.5 ${simulating ? 'animate-bounce text-rose-400' : 'text-rose-400'}`} aria-hidden="true" />
+              <span>{simulating ? 'Simulating...' : 'Simulate Crisis & Replan'}</span>
             </button>
           </div>
         </div>
@@ -161,7 +161,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ gameState }) => {
               className="glass-card rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-emerald-500/40 transition"
             >
               <div className="flex items-start gap-3.5">
-                <span className="w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-slate-950 font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-md">
+                <span className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-xs flex items-center justify-center shrink-0">
                   {step.step_number}
                 </span>
                 <div>

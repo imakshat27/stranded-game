@@ -67,10 +67,10 @@ export const AlgorithmComparisonView: React.FC<AlgorithmComparisonViewProps> = (
           <button
             onClick={runBenchmark}
             disabled={loading}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs flex items-center gap-2 shadow-md shadow-emerald-950/40 transition active:scale-95"
+            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center gap-2 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
           >
-            <Play className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Evaluating State Space...' : 'Run All Algorithms'}</span>
+            <Play className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+            <span>{loading ? 'Evaluating...' : 'Run All Algorithms'}</span>
           </button>
         </div>
 

@@ -611,9 +611,9 @@ export const AILabView: React.FC<AILabViewProps> = ({ gameState }) => {
             <button
               onClick={handleRunSearch}
               disabled={loading}
-              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition active:scale-95 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer disabled:opacity-50"
             >
-              <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
               <span>{loading ? 'Solving...' : 'Re-Run Search'}</span>
             </button>
           </div>

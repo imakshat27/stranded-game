@@ -72,7 +72,7 @@ export const ProbabilityView: React.FC<ProbabilityViewProps> = ({ gameState }) =
           <div className="flex items-center gap-2">
             <button
               onClick={() => { setScenario('storm'); setObservedSignals(['barometer_drop']); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition cursor-pointer ${
                 scenario === 'storm'
                   ? 'bg-rose-950/80 border border-rose-500/50 text-rose-300'
                   : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
@@ -82,7 +82,7 @@ export const ProbabilityView: React.FC<ProbabilityViewProps> = ({ gameState }) =
             </button>
             <button
               onClick={() => { setScenario('salvage'); setObservedSignals(['low_tide_window']); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition cursor-pointer ${
                 scenario === 'salvage'
                   ? 'bg-cyan-950/80 border border-cyan-500/50 text-cyan-300'
                   : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'

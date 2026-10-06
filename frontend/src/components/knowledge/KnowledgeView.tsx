@@ -104,7 +104,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ gameState }) => {
           <button
             onClick={fetchKnowledge}
             disabled={loading}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium font-mono transition"
+            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-medium font-mono transition cursor-pointer disabled:opacity-50"
           >
             {loading ? 'Re-evaluating...' : 'Refresh Inferences'}
           </button>
