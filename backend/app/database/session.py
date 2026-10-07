@@ -3,7 +3,7 @@
 Supports SQLite for local development and PostgreSQL for production deployments.
 """
 
-from typing import Generator
+from typing import Any, Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from app.core.config import settings
@@ -16,7 +16,7 @@ elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+")
     db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 connect_args = {}
-engine_kwargs = {
+engine_kwargs: dict[str, Any] = {
     "pool_pre_ping": True,
 }
 

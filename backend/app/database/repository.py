@@ -78,7 +78,7 @@ class GameRepository:
         game = db.query(Game).filter(Game.id == game_id).first()
         if not game:
             return None
-        data = json.loads(game.current_state_json)
+        data = json.loads(str(game.current_state_json))
         return GameState(**data)
 
     @classmethod
@@ -159,7 +159,7 @@ class GameRepository:
 
         timeline = []
         for s in states:
-            s_data = json.loads(s.state_json)
+            s_data = json.loads(str(s.state_json))
             timeline.append({
                 "day": s.day,
                 "health": s_data.get("health", 0),
